@@ -1,0 +1,22 @@
+v 4
+file . "cpu.vhd" "da43a8b474ce2b9c9891f9431d3fbd7fd418dd20" "20260414201126.345":
+  entity cpu at 49( 1907) + 0 on 395;
+  architecture rtl of cpu at 83( 3091) + 0 on 396;
+file . "spi.vhd" "c10dae443aa67893e2b4aa1350a87ac04707de12" "20260414201126.306":
+  entity spi at 2( 1) + 0 on 391;
+  architecture rtl of spi at 19( 397) + 0 on 392;
+file . "memory.vhd" "b8f21d89f6d3567761c33a69a265691bf0ca9d1c" "20260414201126.279":
+  entity memory at 1( 0) + 0 on 387;
+  architecture rtl of memory at 16( 396) + 0 on 388;
+file . "ram.vhd" "81bc4bbf9452fae44896291fb0c9ecb528a77698" "20260414201126.267":
+  entity ram at 9( 145) + 0 on 385;
+  architecture rtl of ram at 26( 540) + 0 on 386;
+file . "peripherals.vhd" "84c8abb79404184986314a4a968c74adfe67cedc" "20260414201126.294":
+  entity peripherals at 8( 158) + 0 on 389;
+  architecture rtl of peripherals at 33( 926) + 0 on 390;
+file . "memory_bus.vhd" "3dd68b97a223dcec1a23b0010a1f05484a7cf9ce" "20260414201126.322":
+  entity memory_bus at 13( 272) + 0 on 393;
+  architecture rtl of memory_bus at 36( 1097) + 0 on 394;
+file . "cpu_tb.vhd" "822075864f78b84dc71d8a5a9e45c73640d20c7c" "20260414201126.364":
+  entity cpu_tb at 32( 1104) + 0 on 397;
+  architecture sim of cpu_tb at 40( 1224) + 0 on 398;
