@@ -2,32 +2,31 @@
 -- 4328 CPU TB  --
 -- ----------- --
 --
--- Self-checking testbench. No waveform inspection required for pass/fail.
--- Each test uses assert(severity failure) so simulation halts on first fail.
+-- Instruction encoding: [15:10] OPCODE | [9:7] RD | [6:4] RS | [3:2] AM/WIDTH | [1:0] COND
 --
--- Instruction encoding: [15:10] OPCODE | [9:7] RD | [6:4] RS | [3:2] WIDTH | [1:0] COND
+-- NO instruction ever uses any bit of the opcode word as an immediate value.
 --
--- LOADIMM is a 2-word instruction:
---   word 0: enc_li(rd)   — opcode + destination register
---   word 1: imm(value)   — 16-bit immediate (consumed by CPU, not executed)
--- Each enc_li() occupies 2 address slots in load() arrays.
+-- LOADIMM  (2 words):  enc_li(rd)  followed by  imm(value)
+-- Jumps    (1 or 2 words depending on addressing mode):
+--   AM=00 direct    (2 words): enc(OP_Jxx, 0, 0, AM_DIRECT,   cond) + imm(abs_target)
+--   AM=01 indirect  (1 word):  enc(OP_Jxx, 0, rs, AM_INDIRECT, cond)
+--   AM=10 indir+off (2 words): enc(OP_Jxx, 0, rs, AM_INDIR_OFF,cond) + imm(offset)
+--   AM=11 illegal
 --
 -- Test suites:
---   1.  Reset / boot state
---   2.  NOP  — pipeline advances PC
---   3.  LOADIMM — 16-bit immediate load
---   4.  MOV  — register copy
---   5.  ALU  — ADD SUB AND OR XOR SHL SHR INC DEC
---   6.  CMP + conditional branch (JZ taken, JNZ not-taken)
---   7.  JMP  — unconditional absolute jump
---   8.  CALL / RET
---   9.  LD / ST — memory round-trip
+--   1.  Reset
+--   2.  NOP pipeline
+--   3.  LOADIMM
+--   4.  MOV
+--   5.  ALU (ADD SUB AND OR XOR SHL SHR INC DEC)
+--   6.  CMP + JZ.d taken / JNZ.d not-taken
+--   7.  JMP.i (indirect, 1-word)
+--   8.  CALL.i / RET
+--   9.  LD / ST
 --  10.  PUSH / POP
---  11.  Illegal opcode → fault vector 5
---  12.  Hardware IRQ0 → entry + IRET
+--  11.  Illegal opcode → vector 5
+--  12.  IRQ0 + IRET
 --  13.  Conditional execution (.z .c .n)
---
--- Clock: 10 ns.  Timeout: 200 us.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -53,11 +52,9 @@ architecture sim of cpu_tb is
     signal dwmask  : std_logic_vector(1 downto 0);
     signal irq     : std_logic_vector(3 downto 0) := "0000";
 
-    -- Instruction ROM (256 words)
     type irom_t is array (0 to 255) of std_logic_vector(15 downto 0);
     signal irom : irom_t := (others => x"0000");
 
-    -- Data RAM — protected type (written by RAM model + stimulus)
     type dram_t is protected
         procedure write_byte(addr : integer; lane : integer;
                              data : std_logic_vector(7 downto 0));
@@ -89,7 +86,7 @@ architecture sim of cpu_tb is
     shared variable dram : dram_t;
 
     -- -----------------------------------------------------------------------
-    -- Opcode constants (mirror cpu.vhd — must stay in sync)
+    -- Opcode constants
     -- -----------------------------------------------------------------------
     constant OP_ADD      : integer := 0;
     constant OP_SUB      : integer := 1;
@@ -120,28 +117,31 @@ architecture sim of cpu_tb is
     constant OP_ENIRQ    : integer := 48;
     constant OP_WRITERIV : integer := 55;
 
-    -- Width suffixes (inst[3:2])
-    constant W_W : integer := 0;  -- 16-bit  (default)
-    constant W_L : integer := 1;  -- 8-bit low byte
-    constant W_H : integer := 2;  -- 8-bit high byte
-    constant W_D : integer := 3;  -- 32-bit pair
+    -- inst[3:2] — addressing mode (jumps) or width (ALU/mem)
+    constant AM_DIRECT   : integer := 0;  -- jump: 2-word, absolute target in next word
+    constant AM_INDIRECT : integer := 1;  -- jump: 1-word, target in regfile[RS]
+    constant AM_INDIR_OFF: integer := 2;  -- jump: 2-word, regfile[RS] + next word
+    constant W_W         : integer := 0;  -- ALU/mem: 16-bit
+    constant W_L         : integer := 1;  -- ALU/mem: 8-bit low
+    constant W_H         : integer := 2;  -- ALU/mem: 8-bit high
+    constant W_D         : integer := 3;  -- ALU/mem: 32-bit pair
 
-    -- Condition suffixes (inst[1:0])
-    constant C_AL : integer := 0;  -- always  (default)
+    -- inst[1:0] — condition
+    constant C_AL : integer := 0;  -- always
     constant C_Z  : integer := 1;  -- if Z=1
     constant C_C  : integer := 2;  -- if C=1
     constant C_N  : integer := 3;  -- if N=1
 
     -- -----------------------------------------------------------------------
-    -- Instruction encoders
+    -- Encoders
     -- -----------------------------------------------------------------------
 
-    -- General instruction: [OPCODE(6)][RD(3)][RS(3)][WIDTH(2)][COND(2)]
+    -- General: [OPCODE(6)][RD(3)][RS(3)][AM_or_WIDTH(2)][COND(2)]
     function enc(op    : integer;
                  rd    : integer := 0;
                  rs    : integer := 0;
-                 width : integer := W_W;
-                 cond  : integer := C_AL) return std_logic_vector is
+                 width : integer := 0;
+                 cond  : integer := 0) return std_logic_vector is
     begin
         return std_logic_vector(to_unsigned(op,    6)) &
                std_logic_vector(to_unsigned(rd,    3)) &
@@ -150,17 +150,8 @@ architecture sim of cpu_tb is
                std_logic_vector(to_unsigned(cond,  2));
     end function;
 
-    -- Branch encoder: offset in inst[3:0], WIDTH/COND unused by hardware
-    function enc_br(op : integer; offset : integer := 0)
-                    return std_logic_vector is
-    begin
-        return std_logic_vector(to_unsigned(op,     6)) &
-               std_logic_vector(to_unsigned(0,      6)) &
-               std_logic_vector(to_unsigned(offset, 4));
-    end function;
-
     -- LOADIMM opcode word: [LOADIMM][RD][000000]
-    -- Must be followed immediately by the 16-bit immediate word (imm()).
+    -- Must be immediately followed by imm(value) at the next address.
     function enc_li(rd : integer := 0) return std_logic_vector is
     begin
         return std_logic_vector(to_unsigned(OP_LOADIMM, 6)) &
@@ -168,7 +159,7 @@ architecture sim of cpu_tb is
                std_logic_vector(to_unsigned(0,          7));
     end function;
 
-    -- Immediate word: zero-extend integer to 16 bits
+    -- 16-bit immediate word (for LOADIMM and direct/indir+off jumps)
     function imm(v : integer) return std_logic_vector is
     begin
         return std_logic_vector(to_unsigned(v, 16));
@@ -204,36 +195,27 @@ begin
         dwe => dwe, dbe => dbe, dwmask => dwmask, irq => irq
     );
 
-    -- Async instruction ROM
     idata <= irom(to_integer(unsigned(iaddr(7 downto 0))));
 
-    -- Synchronous data RAM
     process(clk)
         variable aw : integer range 0 to 255;
     begin
         if rising_edge(clk) then
             aw := to_integer(unsigned(daddr(8 downto 1)));
             if dwe = '1' then
-                if dwmask(0) = '0' then
-                    dram.write_byte(aw, 0, ddata_w(7  downto 0));
-                end if;
-                if dwmask(1) = '0' then
-                    dram.write_byte(aw, 1, ddata_w(15 downto 8));
-                end if;
+                if dwmask(0) = '0' then dram.write_byte(aw, 0, ddata_w(7  downto 0)); end if;
+                if dwmask(1) = '0' then dram.write_byte(aw, 1, ddata_w(15 downto 8)); end if;
             end if;
             ddata_r <= dram.read(aw);
         end if;
     end process;
 
-    -- Watchdog
     process
     begin
         wait for 200 us;
-        assert false report "TIMEOUT: sim ran 200 us" severity failure;
+        assert false report "TIMEOUT" severity failure;
     end process;
 
-    -- =========================================================================
-    -- MAIN STIMULUS PROCESS
     -- =========================================================================
     process
         variable l          : line;
@@ -242,8 +224,7 @@ begin
 
         procedure ok(msg : string) is
         begin
-            write(l, string'("[PASS] ") & msg);
-            writeline(output, l);
+            write(l, string'("[PASS] ") & msg); writeline(output, l);
             pass_count := pass_count + 1;
         end procedure;
 
@@ -252,15 +233,13 @@ begin
                         msg      : string) is
         begin
             if actual = expected then
-                write(l, string'("[PASS] ") & msg);
-                writeline(output, l);
+                write(l, string'("[PASS] ") & msg); writeline(output, l);
                 pass_count := pass_count + 1;
             else
                 write(l, string'("[FAIL] ") & msg &
                       "  got=" & to_hstring(actual) &
                       " want=" & to_hstring(expected));
-                writeline(output, l);
-                fail_count := fail_count + 1;
+                writeline(output, l); fail_count := fail_count + 1;
                 assert false report "[FAIL] " & msg severity failure;
             end if;
         end procedure;
@@ -289,80 +268,68 @@ begin
     begin
 
         -- ===================================================================
-        -- Suite 1: Reset / boot state
+        -- Suite 1: Reset
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 1: Reset ===")); writeline(output, l);
 
         load((0 => enc(OP_HLT)));
         reset <= '1'; clk_n(1);
-        check(iaddr, x"0000", "iaddr=0x0000 during reset");
+        check(iaddr, x"0000", "iaddr=0 during reset");
         reset <= '0'; clk_n(1);
-        check(iaddr, x"0000", "iaddr=0x0000 first fetch after reset");
+        check(iaddr, x"0000", "iaddr=0 first fetch after reset");
         clk_n(2);
 
         -- ===================================================================
-        -- Suite 2: NOP — pipeline advances PC
+        -- Suite 2: NOP pipeline advance
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
-        write(l, string'("=== Suite 2: NOP pipeline ===")); writeline(output, l);
+        write(l, string'("=== Suite 2: NOP ===")); writeline(output, l);
 
         load((0 => enc(OP_NOP), 1 => enc(OP_NOP),
               2 => enc(OP_NOP), 3 => enc(OP_HLT)));
         do_reset; clk_n(8);
         assert to_integer(unsigned(iaddr)) >= 3
-            report "[FAIL] NOP: PC did not advance" severity failure;
+            report "[FAIL] NOP: PC stalled" severity failure;
         ok("NOP: PC advanced through 3 NOPs");
 
         -- ===================================================================
-        -- Suite 3: LOADIMM  RD ← 16-bit immediate
-        --
-        -- Program layout:
-        --   addr 0: enc_li(0)        LOADIMM opcode, RD=R0
-        --   addr 1: imm(7)           immediate value 7
-        --   addr 2: enc(ST,0,0)      ST mem[R0=7] ← R0=7
-        --   addr 3: enc(HLT)
-        --
-        -- ST writes to byte addr 7 → word addr 3. Check dram(3) = 0x0007.
+        -- Suite 3: LOADIMM  (2-word instruction)
+        --   addr 0: enc_li(0)        addr 1: imm(7)
+        --   addr 2: ST mem[R0=7]←7   addr 3: HLT
+        --   byte addr 7 → word addr 3 → dram(3)=0x0007
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 3: LOADIMM ===")); writeline(output, l);
 
-        load((0 => enc_li(0),
-              1 => imm(7),
+        load((0 => enc_li(0), 1 => imm(7),
               2 => enc(OP_ST, 0, 0),
               3 => enc(OP_HLT)));
         dram.clear; do_reset; clk_n(16);
-        check(dram.read(3), x"0007", "LOADIMM: R0=7, ST to word addr 3");
+        check(dram.read(3), x"0007", "LOADIMM: R0=7 stored");
 
         -- ===================================================================
-        -- Suite 4: MOV  RD ← RS
-        --
-        --   0-1: R0 ← 9
-        --   2:   MOV R2, R0   (R2 ← 9)
-        --   3:   ST mem[R2=9] ← R2=9   byte 9 → word 4
-        --   4:   HLT
+        -- Suite 4: MOV  R2 ← R0
+        --   0-1: R0←9   2: MOV R2,R0   3: ST mem[R2=9]←9   4: HLT
+        --   byte 9 → word 4 → dram(4)=0x0009
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 4: MOV ===")); writeline(output, l);
 
-        load((0 => enc_li(0),
-              1 => imm(9),
+        load((0 => enc_li(0), 1 => imm(9),
               2 => enc(OP_MOV, 2, 0),
               3 => enc(OP_ST,  2, 2),
               4 => enc(OP_HLT)));
         dram.clear; do_reset; clk_n(18);
-        check(dram.read(4), x"0009", "MOV: R2=9 written via ST");
+        check(dram.read(4), x"0009", "MOV: R2=9 stored");
 
         -- ===================================================================
-        -- Suite 5: ALU operations
-        -- Each test: load operands via LOADIMM+MOV, execute op, ST result.
+        -- Suite 5: ALU
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 5: ALU ===")); writeline(output, l);
 
-        -- 5a. ADD: 4+3=7 → ST mem[7]←7 → dram(3)
-        --   0-1: R0←3  2: MOV R1,R0  3-4: R0←4  5: ADD R0,R1  6: ST  7: HLT
+        -- 5a. ADD 4+3=7 → dram(3)
         load((0 => enc_li(0), 1 => imm(3),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),   4 => imm(4),
@@ -372,7 +339,7 @@ begin
         dram.clear; do_reset; clk_n(26);
         check(dram.read(3), x"0007", "ADD: 4+3=7");
 
-        -- 5b. SUB: 9-5=4 → ST mem[4]←4 → dram(2)
+        -- 5b. SUB 9-5=4 → dram(2)
         load((0 => enc_li(0), 1 => imm(5),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),   4 => imm(9),
@@ -382,8 +349,7 @@ begin
         dram.clear; do_reset; clk_n(26);
         check(dram.read(2), x"0004", "SUB: 9-5=4");
 
-        -- 5c. AND: 15&15=15 → ST mem[15]←15 → dram(7)
-        --   0-1: R0←15  2: MOV R1,R0  3: AND R0,R1  4: ST  5: HLT
+        -- 5c. AND 15&15=15 → dram(7)
         load((0 => enc_li(0), 1 => imm(15),
               2 => enc(OP_MOV, 1, 0),
               3 => enc(OP_AND, 0, 1),
@@ -392,7 +358,7 @@ begin
         dram.clear; do_reset; clk_n(20);
         check(dram.read(7), x"000F", "AND: 15&15=15");
 
-        -- 5d. OR: 5|10=15 → ST mem[15]←15 → dram(7)
+        -- 5d. OR 5|10=15 → dram(7)
         load((0 => enc_li(0), 1 => imm(5),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),   4 => imm(10),
@@ -402,7 +368,7 @@ begin
         dram.clear; do_reset; clk_n(26);
         check(dram.read(7), x"000F", "OR: 5|10=15");
 
-        -- 5e. XOR: 5^3=6 → ST mem[6]←6 → dram(3)
+        -- 5e. XOR 5^3=6 → dram(3)
         load((0 => enc_li(0), 1 => imm(3),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),   4 => imm(5),
@@ -412,7 +378,7 @@ begin
         dram.clear; do_reset; clk_n(26);
         check(dram.read(3), x"0006", "XOR: 5^3=6");
 
-        -- 5f. SHL: 1<<1<<1=4 → ST mem[4]←4 → dram(2)
+        -- 5f. SHL 1<<2=4 → dram(2)
         load((0 => enc_li(0), 1 => imm(1),
               2 => enc(OP_SHL, 0, 0),
               3 => enc(OP_SHL, 0, 0),
@@ -421,7 +387,7 @@ begin
         dram.clear; do_reset; clk_n(18);
         check(dram.read(2), x"0004", "SHL: 1<<2=4");
 
-        -- 5g. SHR: 8>>1>>1=2 → ST mem[2]←2 → dram(1)
+        -- 5g. SHR 8>>2=2 → dram(1)
         load((0 => enc_li(0), 1 => imm(8),
               2 => enc(OP_SHR, 0, 0),
               3 => enc(OP_SHR, 0, 0),
@@ -430,7 +396,7 @@ begin
         dram.clear; do_reset; clk_n(18);
         check(dram.read(1), x"0002", "SHR: 8>>2=2");
 
-        -- 5h. INC/DEC: 5+1+1-1=6 → ST mem[6]←6 → dram(3)
+        -- 5h. INC/DEC 5+1+1-1=6 → dram(3)
         load((0 => enc_li(0), 1 => imm(5),
               2 => enc(OP_INC, 0, 0),
               3 => enc(OP_INC, 0, 0),
@@ -441,92 +407,84 @@ begin
         check(dram.read(3), x"0006", "INC/DEC: 5+1+1-1=6");
 
         -- ===================================================================
-        -- Suite 6: CMP + conditional branches
+        -- Suite 6: CMP + direct jumps (AM_DIRECT, 2-word)
         --
-        -- 6a. JZ taken (Z=1):
-        --   0-1: R0←7  2: MOV R1,R0  3: CMP  4: JZ+3→addr7
-        --   5-6: LOADIMM R0←1  (skipped — both words skipped by JZ)
-        --   7: ST mem[R0=7]←7 → dram(3)   8: HLT
-        --
-        -- JZ at addr 4, offset=3 → target = 4+3 = 7. ✓
+        -- 6a. JZ.d taken: R0=R1=7, CMP→Z=1, JZ.d target=8 (skips LOADIMM at 6-7)
+        --   0-1: R0←7   2: MOV R1,R0   3: CMP
+        --   4: JZ.d     5: imm(8)      6-7: LOADIMM R0←1 (skipped)
+        --   8: ST mem[R0=7]←7 → dram(3)   9: HLT
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 6: CMP + branches ===")); writeline(output, l);
 
-        load((0 => enc_li(0),          1 => imm(7),
+        load((0 => enc_li(0),                         1 => imm(7),
               2 => enc(OP_MOV, 1, 0),
               3 => enc(OP_CMP, 0, 1),
-              4 => enc_br(OP_JZ, 3),   -- JZ → addr 7
-              5 => enc_li(0),          6 => imm(1),   -- skipped
-              7 => enc(OP_ST, 0, 0),
-              8 => enc(OP_HLT)));
-        dram.clear; do_reset; clk_n(28);
-        check(dram.read(3), x"0007", "JZ taken: skips LOADIMM, R0 stays 7");
+              4 => enc(OP_JZ,  0, 0, AM_DIRECT, C_AL), 5 => imm(8),
+              6 => enc_li(0),                         7 => imm(1),
+              8 => enc(OP_ST, 0, 0),
+              9 => enc(OP_HLT)));
+        dram.clear; do_reset; clk_n(30);
+        check(dram.read(3), x"0007", "JZ.d taken: Z=1, skips LOADIMM, R0 stays 7");
 
-        -- 6b. JNZ not-taken (Z=1 → JNZ falls through):
-        --   Same layout; JNZ at 4, Z=1 → not taken, executes LOADIMM R0←3
-        --   addr 7: ST mem[3]←3 → dram(1)
-        load((0 => enc_li(0),          1 => imm(7),
+        -- 6b. JNZ.d not-taken: Z=1, JNZ not taken, falls through LOADIMM R0←3
+        --   Same layout with JNZ. Falls through to LOADIMM(6,7)=R0←3, ST→dram(1)
+        load((0 => enc_li(0),                          1 => imm(7),
               2 => enc(OP_MOV, 1, 0),
               3 => enc(OP_CMP, 0, 1),
-              4 => enc_br(OP_JNZ, 3),  -- JNZ not taken
-              5 => enc_li(0),          6 => imm(3),   -- executed
-              7 => enc(OP_ST, 0, 0),
-              8 => enc(OP_HLT)));
-        dram.clear; do_reset; clk_n(28);
-        check(dram.read(1), x"0003", "JNZ not-taken: falls through, R0=3");
+              4 => enc(OP_JNZ, 0, 0, AM_DIRECT, C_AL), 5 => imm(8),
+              6 => enc_li(0),                          7 => imm(3),
+              8 => enc(OP_ST, 0, 0),
+              9 => enc(OP_HLT)));
+        dram.clear; do_reset; clk_n(30);
+        check(dram.read(1), x"0003", "JNZ.d not-taken: Z=1, falls through, R0=3");
 
         -- ===================================================================
-        -- Suite 7: JMP — absolute register-indirect jump
-        --
-        --   0-1: R0←8   2: MOV R1,R0   3: JMP R1 → addr 8
+        -- Suite 7: JMP.i (indirect, 1-word)
+        --   0-1: R0←8   2: MOV R1,R0   3: JMP.i R1  (1 word — no immediate follows)
         --   4-5: LOADIMM R0←1 (skipped)
         --   6-7: LOADIMM R0←2 (skipped)
         --   8: ST mem[R0=8]←8 → dram(4)   9: HLT
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
-        write(l, string'("=== Suite 7: JMP ===")); writeline(output, l);
+        write(l, string'("=== Suite 7: JMP.i ===")); writeline(output, l);
 
-        load((0 => enc_li(0),          1 => imm(8),
+        load((0 => enc_li(0),                           1 => imm(8),
               2 => enc(OP_MOV, 1, 0),
-              3 => enc(OP_JMP, 0, 1),  -- JMP R1 → 8
-              4 => enc_li(0),          5 => imm(1),   -- skipped
-              6 => enc_li(0),          7 => imm(2),   -- skipped
-              8 => enc(OP_ST, 0, 0),
+              3 => enc(OP_JMP, 0, 1, AM_INDIRECT, C_AL),
+              4 => enc_li(0),                           5 => imm(1),
+              6 => enc_li(0),                           7 => imm(2),
+              8 => enc(OP_ST,  0, 0),
               9 => enc(OP_HLT)));
         dram.clear; do_reset; clk_n(24);
-        check(dram.read(4), x"0008", "JMP: jumps to addr 8, skips addr 4-7");
+        check(dram.read(4), x"0008", "JMP.i: indirect to addr 8, skips 4-7");
 
         -- ===================================================================
-        -- Suite 8: CALL / RET
-        --
-        --   0-1: R0←8   2: MOV R1,R0   3: CALL R1 (push ret=4, jump 8)
+        -- Suite 8: CALL.i / RET
+        --   0-1: R0←8   2: MOV R1,R0
+        --   3: CALL.i R1  (1-word, pushes ret=4, jumps to 8)
         --   4: ST mem[R0=9]←9 → dram(4)   5: HLT
         --   6,7: NOP padding
-        --   8-9: R0←9 (callee)   10: RET → returns to addr 4
+        --   8-9: R0←9 (callee)   10: RET → returns to 4
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
-        write(l, string'("=== Suite 8: CALL/RET ===")); writeline(output, l);
+        write(l, string'("=== Suite 8: CALL.i/RET ===")); writeline(output, l);
 
-        load((0  => enc_li(0),          1  => imm(8),
+        load((0  => enc_li(0),                            1  => imm(8),
               2  => enc(OP_MOV,  1, 0),
-              3  => enc(OP_CALL, 0, 1),
-              4  => enc(OP_ST,   0, 0), -- after return: ST mem[9]←9 → dram(4)
+              3  => enc(OP_CALL, 0, 1, AM_INDIRECT, C_AL),
+              4  => enc(OP_ST,   0, 0),
               5  => enc(OP_HLT),
               6  => enc(OP_NOP),
               7  => enc(OP_NOP),
-              8  => enc_li(0),          9  => imm(9),  -- callee: R0←9
+              8  => enc_li(0),                            9  => imm(9),
               10 => enc(OP_RET)));
         dram.clear; do_reset; clk_n(40);
-        check(dram.read(4), x"0009", "CALL/RET: callee sets R0=9, returns, ST writes 9");
+        check(dram.read(4), x"0009", "CALL.i/RET: callee R0=9, returns, ST writes 9");
 
         -- ===================================================================
-        -- Suite 9: LD / ST — memory round-trip
-        --
-        -- Pre-seed dram(1) = 0x0004.
-        -- R0←2 (byte addr 2 = word addr 1).
-        -- LD R0, (R0) → R0 ← mem[2] = 4.
-        -- ST mem[R0=4] ← R0=4 → dram(2). Check dram(2)=4.
+        -- Suite 9: LD / ST
+        --   dram(1)=4. R0←2, LD R0,(R0)→R0=4, ST mem[4]←4 → dram(2)
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 9: LD/ST ===")); writeline(output, l);
@@ -541,8 +499,7 @@ begin
 
         -- ===================================================================
         -- Suite 10: PUSH / POP
-        --
-        --   0-1: R0←7   2: PUSH R0   3-4: R0←3 (clobber)   5: POP R0 → 7
+        --   0-1: R0←7   2: PUSH R0   3-4: R0←3   5: POP R0→7
         --   6: ST mem[7]←7 → dram(3)   7: HLT
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
@@ -555,23 +512,20 @@ begin
               6 => enc(OP_ST,   0, 0),
               7 => enc(OP_HLT)));
         dram.clear; do_reset; clk_n(28);
-        check(dram.read(3), x"0007", "PUSH/POP: push 7, clobber R0, pop restores 7");
+        check(dram.read(3), x"0007", "PUSH/POP: push 7, clobber, pop restores 7");
 
         -- ===================================================================
-        -- Suite 11: Illegal opcode → fault vector 5
-        --
-        -- Handler at addr 14.
+        -- Suite 11: Illegal opcode → vector 5
         --   0-1: R0←14   2: WRITERIV RIV[5]←R0
-        --   3: opcode 63 (illegal)   4: HLT (must not run)
-        --   5-13: NOP padding
-        --   14-15: R0←1   16: ST mem[1]←1 → dram(0)   17: HLT
+        --   3: opcode 63 (0xFC00, illegal)   4: HLT (must not run)
+        --   5-13: NOPs   14-15: R0←1   16: ST→dram(0)   17: HLT
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 11: Illegal opcode ===")); writeline(output, l);
 
         load((0  => enc_li(0),             1  => imm(14),
               2  => enc(OP_WRITERIV, 0, 5),
-              3  => x"FC00",               -- illegal opcode 63
+              3  => x"FC00",
               4  => enc(OP_HLT),
               5  => enc(OP_NOP), 6  => enc(OP_NOP), 7  => enc(OP_NOP),
               8  => enc(OP_NOP), 9  => enc(OP_NOP), 10 => enc(OP_NOP),
@@ -580,17 +534,15 @@ begin
               16 => enc(OP_ST, 0, 0),
               17 => enc(OP_HLT)));
         dram.clear; do_reset; clk_n(50);
-        check(dram.read(0), x"0001", "ILL_OPCODE: vector 5 taken, handler sentinel=1");
+        check(dram.read(0), x"0001", "ILL_OPCODE: vector 5, handler sentinel=1 at mem[1]");
 
         -- ===================================================================
-        -- Suite 12: Hardware IRQ0 → entry + IRET
-        --
-        -- Handler at addr 15.
+        -- Suite 12: IRQ0 + IRET
         --   0-1: R0←15   2: WRITERIV RIV[0]←R0   3: ENIRQ
         --   4,5,6: NOPs (IRQ fires here)
-        --   7-8: R0←2   9: ST mem[2]←2 → dram(1)   10: HLT
-        --   11-14: NOP padding
-        --   15-16: R0←4   17: ST mem[4]←4 → dram(2)   18: IRET
+        --   7-8: R0←2   9: ST→dram(1)   10: HLT
+        --   11-14: NOPs
+        --   15-16: R0←4 (handler)   17: ST→dram(2)   18: IRET
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 12: IRQ0 + IRET ===")); writeline(output, l);
@@ -600,7 +552,7 @@ begin
               3  => enc(OP_ENIRQ),
               4  => enc(OP_NOP), 5  => enc(OP_NOP), 6  => enc(OP_NOP),
               7  => enc_li(0),             8  => imm(2),
-              9  => enc(OP_ST, 0, 0),
+              9  => enc(OP_ST,   0, 0),
               10 => enc(OP_HLT),
               11 => enc(OP_NOP), 12 => enc(OP_NOP),
               13 => enc(OP_NOP), 14 => enc(OP_NOP),
@@ -608,22 +560,18 @@ begin
               17 => enc(OP_ST,   0, 0),
               18 => enc(OP_IRET)));
         dram.clear; irq <= "0000"; do_reset;
-        clk_n(10);               -- reach ENIRQ + NOPs
-        irq <= "0001"; clk_n(2); irq <= "0000";
-        clk_n(50);
+        clk_n(10); irq <= "0001"; clk_n(2); irq <= "0000"; clk_n(50);
         check(dram.read(2), x"0004", "IRQ0: handler sentinel=4 at mem[4]");
         check(dram.read(1), x"0002", "IRQ0: IRET returned, main sentinel=2 at mem[2]");
 
         -- ===================================================================
-        -- Suite 13: Conditional execution (inst[1:0] condition field)
+        -- Suite 13: Conditional execution (inst[1:0])
         -- ===================================================================
         write(l, string'("")); writeline(output, l);
         write(l, string'("=== Suite 13: Conditional execution ===")); writeline(output, l);
 
-        -- 13a. ADD.z taken — Z=1, ADD fires, R0=7+7=14, ST mem[14]←14 → dram(7)
-        --   0-1: R0←7   2: MOV R1,R0   3: CMP→Z=1
-        --   4: ADD.z R0,R1 → R0=14   5: ST   6: HLT
-        load((0 => enc_li(0),          1 => imm(7),
+        -- 13a. ADD.z taken: R0=R1=7, CMP→Z=1, ADD.z→14, ST→dram(7)
+        load((0 => enc_li(0), 1 => imm(7),
               2 => enc(OP_MOV, 1, 0),
               3 => enc(OP_CMP, 0, 1),
               4 => enc(OP_ADD, 0, 1, W_W, C_Z),
@@ -632,12 +580,10 @@ begin
         dram.clear; do_reset; clk_n(24);
         check(dram.read(7), x"000E", "COND_Z: ADD.z fires, R0=7+7=14");
 
-        -- 13b. ADD.z suppressed — Z=0, ADD skipped, R0 stays 5
-        --   0-1: R0←3   2: MOV R1,R0   3-4: R0←5
-        --   5: CMP→Z=0   6: ADD.z suppressed   7: ST mem[5]←5 → dram(2)
-        load((0 => enc_li(0),          1 => imm(3),
+        -- 13b. ADD.z suppressed: R0=5 R1=3, CMP→Z=0, ADD.z skipped, R0=5→dram(2)
+        load((0 => enc_li(0), 1 => imm(3),
               2 => enc(OP_MOV, 1, 0),
-              3 => enc_li(0),          4 => imm(5),
+              3 => enc_li(0),   4 => imm(5),
               5 => enc(OP_CMP, 0, 1),
               6 => enc(OP_ADD, 0, 1, W_W, C_Z),
               7 => enc(OP_ST,  0, 0),
@@ -645,7 +591,7 @@ begin
         dram.clear; do_reset; clk_n(28);
         check(dram.read(2), x"0005", "COND_Z: ADD.z suppressed, R0 stays 5");
 
-        -- 13c. MOV.c taken — SHR 3→1 sets C=1, MOV.c R1←R0=1, ST mem[1]←1 → dram(0)
+        -- 13c. MOV.c taken: SHR 3→1 C=1, MOV.c R1←1, ST mem[1]←1→dram(0)
         load((0 => enc_li(0), 1 => imm(3),
               2 => enc(OP_SHR, 0, 0),
               3 => enc(OP_MOV, 1, 0, W_W, C_C),
@@ -654,7 +600,7 @@ begin
         dram.clear; do_reset; clk_n(20);
         check(dram.read(0), x"0001", "COND_C: MOV.c fires when C=1");
 
-        -- 13d. MOV.c suppressed — SHR 4→2 C=0, MOV.c skipped, R1=0, ST → dram(0)=0
+        -- 13d. MOV.c suppressed: SHR 4→2 C=0, MOV.c skipped, R1=0→dram(0)=0
         load((0 => enc_li(0), 1 => imm(4),
               2 => enc(OP_SHR, 0, 0),
               3 => enc(OP_MOV, 1, 0, W_W, C_C),
@@ -663,9 +609,7 @@ begin
         dram.clear; do_reset; clk_n(20);
         check(dram.read(0), x"0000", "COND_C: MOV.c suppressed when C=0");
 
-        -- 13e. MOV.n taken — SUB 3-5 sets N=1, MOV.n R2←R1=5, ST mem[5]←5 → dram(2)
-        --   0-1: R0←5   2: MOV R1,R0   3-4: R0←3
-        --   5: SUB R0,R1 → N=1   6: MOV.n R2,R1   7: ST mem[5]←5   8: HLT
+        -- 13e. MOV.n taken: SUB 3-5→N=1, MOV.n R2←R1=5, ST→dram(2)
         load((0 => enc_li(0),          1 => imm(5),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),          4 => imm(3),
@@ -676,7 +620,7 @@ begin
         dram.clear; do_reset; clk_n(28);
         check(dram.read(2), x"0005", "COND_N: MOV.n fires when N=1");
 
-        -- 13f. MOV.n suppressed — SUB 5-3 N=0, MOV.n skipped, R2=0, ST → dram(0)=0
+        -- 13f. MOV.n suppressed: SUB 5-3→N=0, R2=0→dram(0)=0
         load((0 => enc_li(0),          1 => imm(3),
               2 => enc(OP_MOV, 1, 0),
               3 => enc_li(0),          4 => imm(5),
@@ -697,9 +641,7 @@ begin
         write(l, string'("Tests failed: ") & integer'image(fail_count)); writeline(output, l);
         write(l, string'("========================================")); writeline(output, l);
 
-        assert fail_count = 0
-            report "ONE OR MORE TESTS FAILED" severity failure;
-
+        assert fail_count = 0 report "ONE OR MORE TESTS FAILED" severity failure;
         std.env.stop(0);
         wait;
     end process;

@@ -34,6 +34,12 @@
 --   10 = 8-bit high byte (.h suffix)
 --   11 = 32-bit pair     (.d suffix, ER)
 --
+-- Jump/branch addressing mode (inst[3:2], when JMP_AM_FROM_INST=1 in CW):
+--   00 = Direct      — target in next word (2-word instruction, absolute)
+--   01 = Indirect    — target in regfile[RS] (1-word instruction)
+--   10 = Indir+Off   — target = regfile[RS] + next word (2-word instruction)
+--   11 = Illegal     — triggers illegal-opcode fault
+--
 -- Instruction condition encoding (inst[1:0], evaluated in EXECUTE):
 --   00 = always   (default, unconditional)
 --   01 = if Z=1   (.z suffix)
@@ -146,12 +152,18 @@ architecture rtl of cpu is
     constant WB_IMM_WORD  : std_logic_vector(2 downto 0) := "101"; -- captured 16-bit immediate word
 
     -- PC_SRC encodings
-    constant PC_SEQ       : std_logic_vector(2 downto 0) := "000"; -- RPC+1
-    constant PC_JMP       : std_logic_vector(2 downto 0) := "001"; -- absolute jump
-    constant PC_BR        : std_logic_vector(2 downto 0) := "010"; -- conditional branch
+    constant PC_SEQ       : std_logic_vector(2 downto 0) := "000"; -- RPC+1 (sequential)
+    constant PC_JUMP      : std_logic_vector(2 downto 0) := "001"; -- jump (mode in inst[3:2])
+    constant PC_STALL     : std_logic_vector(2 downto 0) := "010"; -- hold PC (HLT)
     constant PC_INT       : std_logic_vector(2 downto 0) := "011"; -- interrupt entry
-    constant PC_RET       : std_logic_vector(2 downto 0) := "100"; -- return (stack)
+    constant PC_RET       : std_logic_vector(2 downto 0) := "100"; -- return (stack pop)
     constant PC_IRET      : std_logic_vector(2 downto 0) := "101"; -- IRET (from RIP)
+
+    -- Jump addressing mode constants — match inst[3:2] encoding
+    constant AM_DIRECT    : std_logic_vector(1 downto 0) := "00"; -- 2-word: abs target in next word
+    constant AM_INDIRECT  : std_logic_vector(1 downto 0) := "01"; -- 1-word: target in regfile[RS]
+    constant AM_INDIR_OFF : std_logic_vector(1 downto 0) := "10"; -- 2-word: regfile[RS] + next word
+    constant AM_ILLEGAL   : std_logic_vector(1 downto 0) := "11"; -- illegal → fault
 
     -- BRANCH_COND encodings
     constant BR_NEVER     : std_logic_vector(3 downto 0) := "0000";
@@ -567,52 +579,65 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- JMP  RPC ← RS  (unconditional, register indirect)
+        -- JMP  — addressing mode in inst[3:2], condition in inst[1:0]
+        -- Step 0 (LAST_STEP=0): freeze fetch, capture fd_instr → jmp_word.
+        --   For AM_INDIRECT (inst[3:2]=01): the clocked process detects this,
+        --   executes the jump immediately, and resets micro_step to 0 (1-word).
+        --   For AM_DIRECT / AM_INDIR_OFF: step 1 executes.
+        -- Step 1 (LAST_STEP=1): apply jump target from jmp_word.
+        -- Same 2-step structure applies to all conditional jumps and CALL.
         -- -------------------------------------------------------------------
         base := OP_JMP * 8;
-        r(base) := make_cw(
-            pc_src => PC_JMP, branch_cond => BR_ALWAYS,
-            last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_ALWAYS, last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_ALWAYS, last_step => '1');
 
-        -- -------------------------------------------------------------------
-        -- Conditional jumps  (all register-indirect on RS)
-        -- -------------------------------------------------------------------
         base := OP_JZ * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_Z,    last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_Z,    last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_Z,    last_step => '1');
 
         base := OP_JNZ * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_NZ,   last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_NZ,   last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_NZ,   last_step => '1');
 
         base := OP_JC * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_C,    last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_C,    last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_C,    last_step => '1');
 
         base := OP_JNC * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_NC,   last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_NC,   last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_NC,   last_step => '1');
 
         base := OP_JA * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_A,    last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_A,    last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_A,    last_step => '1');
 
         base := OP_JB * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_B,    last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_B,    last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_B,    last_step => '1');
 
         base := OP_JAE * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_AE,   last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_AE,   last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_AE,   last_step => '1');
 
         base := OP_JBE * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_BE,   last_step => '1');
+        r(base)   := make_cw(pc_src => PC_JUMP, branch_cond => BR_BE,   last_step => '0');
+        r(base+1) := make_cw(pc_src => PC_JUMP, branch_cond => BR_BE,   last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- CALL  push RPC; RPC ← RS
-        -- Step 0: push current PC onto stack
-        -- Step 1: jump to RS, LAST_STEP
+        -- CALL  push RPC; then jump (same addressing modes as JMP)
+        -- Step 0: push current PC onto stack AND capture fd_instr → jmp_word.
+        --   For AM_INDIRECT: execute jump immediately (1-word).
+        --   For AM_DIRECT / AM_INDIR_OFF: continue to step 1.
+        -- Step 1: apply jump target.
         -- -------------------------------------------------------------------
         base := OP_CALL * 8;
         r(base)   := make_cw(
             mem_wr => '1', mem_width => '1', mem_src => MS_PC,
             sp_op => SP_PUSH,
+            pc_src => PC_JUMP, branch_cond => BR_ALWAYS,
             last_step => '0');
         r(base+1) := make_cw(
-            pc_src => PC_JMP, branch_cond => BR_ALWAYS,
+            pc_src => PC_JUMP, branch_cond => BR_ALWAYS,
             last_step => '1');
 
         -- -------------------------------------------------------------------
@@ -650,11 +675,10 @@ architecture rtl of cpu is
         r(base) := make_cw(last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- HLT  spin forever  (PC stays, pipeline stalls)
-        -- Implemented as branch-to-self
+        -- HLT  spin forever — PC stalls, pipeline loops on this instruction
         -- -------------------------------------------------------------------
         base := OP_HLT * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_ALWAYS, last_step => '1');
+        r(base) := make_cw(pc_src => PC_STALL, last_step => '1');
 
         -- -------------------------------------------------------------------
         -- System instructions (all kernel-only)
@@ -694,9 +718,9 @@ architecture rtl of cpu is
         base := OP_WRITERIV * 8;
         r(base) := make_cw(priv_check => '1', last_step => '1');
 
-        -- HALT (alias)
+        -- HALT (alias for HLT)
         base := OP_HALT * 8;
-        r(base) := make_cw(pc_src => PC_BR, branch_cond => BR_ALWAYS, last_step => '1');
+        r(base) := make_cw(pc_src => PC_STALL, last_step => '1');
 
         return r;
     end function;
@@ -811,6 +835,7 @@ architecture rtl of cpu is
     signal instr_rs     : std_logic_vector(2 downto 0);
     signal instr_imm    : std_logic_vector(3 downto 0);
     signal instr_cond   : std_logic_vector(1 downto 0); -- inst[1:0] condition field
+    signal instr_am     : std_logic_vector(1 downto 0); -- inst[3:2] addressing mode (jumps)
 
     -- Condition met: '1' when the instruction's condition is satisfied
     -- When '0' in EXECUTE the instruction is treated as a NOP
@@ -829,6 +854,9 @@ architecture rtl of cpu is
 
     -- Captured immediate word for LOADIMM (latched in step 0, used in step 1)
     signal imm_word   : std_logic_vector(15 downto 0) := (others => '0');
+
+    -- Captured next-word for direct/indirect+offset jumps (latched in step 0)
+    signal jmp_word   : std_logic_vector(15 downto 0) := (others => '0');
 
 begin
 
@@ -866,7 +894,8 @@ begin
     instr_rd     <= de_instr(9  downto 7);
     instr_rs     <= de_instr(6  downto 4);
     instr_imm    <= de_instr(3  downto 0);
-    instr_cond   <= de_instr(1  downto 0);  -- condition field (ignored by LOADIMM/branches)
+    instr_cond   <= de_instr(1  downto 0);  -- condition (always, Z, C, N)
+    instr_am     <= de_instr(3  downto 2);  -- addressing mode for jump/call (00=direct,01=indirect,10=indir+off,11=illegal)
 
     -- Condition evaluation (combinational, from current flag state)
     -- 00=always, 01=Z, 10=C, 11=N
@@ -1188,6 +1217,7 @@ begin
                 int_entry    <= '0';
                 int_step     <= (others => '0');
                 imm_word     <= (others => '0');
+                jmp_word     <= (others => '0');
 
             else
                 flush     := '0';
@@ -1257,18 +1287,31 @@ begin
                             micro_step <= micro_step + 1;
                         end if;
 
-                        -- LOADIMM step 0: capture the immediate word from fd_instr.
-                        -- At this point fd_instr holds the word that was fetched
-                        -- immediately after the LOADIMM opcode (the immediate value).
-                        -- Fetch is suppressed while micro_step /= 0, so fd_instr
-                        -- is stable and will not be overwritten until step 1 completes.
-                        -- We also advance rpc past the immediate word here so that
-                        -- when fetch resumes after step 1 it picks up the correct
-                        -- next instruction.
+                        -- LOADIMM step 0: capture immediate word.
                         if to_integer(unsigned(instr_opcode)) = OP_LOADIMM
                            and micro_step = 0 then
                             imm_word <= fd_instr;
                             rpc      <= std_logic_vector(unsigned(rpc) + 1);
+                        end if;
+
+                        -- Jump step 0 for 2-word modes (AM_DIRECT / AM_INDIR_OFF):
+                        -- capture the target/offset word and consume it from the stream.
+                        -- This happens unconditionally regardless of cond_met —
+                        -- a not-taken jump still must skip its target word so the
+                        -- following instruction is fetched correctly.
+                        if cw_pc_src = PC_JUMP and micro_step = 0
+                           and instr_am /= AM_INDIRECT and instr_am /= AM_ILLEGAL then
+                            jmp_word <= fd_instr;
+                            rpc      <= std_logic_vector(unsigned(rpc) + 1);
+                        end if;
+
+                        -- For AM_INDIRECT and AM_ILLEGAL jumps, the sequence is
+                        -- always 1 step regardless of cond_met. Override micro_step
+                        -- here (outside cond_met) so a not-taken indirect jump
+                        -- doesn't erroneously advance to step 1.
+                        if cw_pc_src = PC_JUMP and micro_step = 0
+                           and (instr_am = AM_INDIRECT or instr_am = AM_ILLEGAL) then
+                            micro_step <= (others => '0');
                         end if;
 
                         if cond_met = '1' then
@@ -1317,35 +1360,52 @@ begin
                         rsp <= std_logic_vector(new_sp);
 
                         -- PC update
-                        -- Fetch already incremented rpc for sequential flow.
-                        -- Only non-sequential ops redirect rpc (and flush pipeline).
                         case cw_pc_src is
                             when PC_SEQ =>
-                                null; -- fetch already incremented rpc
-                            when PC_JMP =>
-                                if branch_taken = '1' then
-                                    rpc   <= regfile(to_integer(unsigned(instr_rs)));
-                                    flush := '1';
+                                null;
+
+                            when PC_STALL =>
+                                -- HLT: undo the rpc increment that fetch already did,
+                                -- keeping the CPU pointed at the HLT instruction forever.
+                                rpc <= de_pc;
+
+                            when PC_JUMP =>
+                                if micro_step = 0 then
+                                    if instr_am = AM_INDIRECT then
+                                        -- 1-word: execute jump now
+                                        -- (micro_step already forced to 0 above)
+                                        if branch_taken = '1' then
+                                            rpc   <= regfile(to_integer(unsigned(instr_rs)));
+                                            flush := '1';
+                                        end if;
+                                    -- AM_ILLEGAL: ill_opcode set below, no PC change
+                                    -- 2-word: jmp_word captured above, step 1 executes next cycle
+                                    end if;
+                                else
+                                    -- Step 1: apply target from captured jmp_word
+                                    if branch_taken = '1' then
+                                        if instr_am = AM_DIRECT then
+                                            rpc <= jmp_word;
+                                        else -- AM_INDIR_OFF
+                                            rpc <= std_logic_vector(
+                                                unsigned(regfile(to_integer(unsigned(instr_rs)))) +
+                                                unsigned(jmp_word));
+                                        end if;
+                                        flush := '1';
+                                    end if;
                                 end if;
-                            when PC_BR =>
-                                if branch_taken = '1' then
-                                    -- PC-relative: signed offset in IMM[3:0]
-                                    rpc   <= std_logic_vector(
-                                        unsigned(de_pc) +
-                                        unsigned(resize(signed(instr_imm), 16)));
-                                    flush := '1';
-                                end if;
+
                             when PC_INT =>
                                 rpc   <= riv(int_pending_vec);
                                 flush := '1';
                             when PC_RET =>
-                                rpc   <= ddata_r; -- memory read data from previous step
+                                rpc   <= ddata_r;
                                 flush := '1';
                             when PC_IRET =>
-                                rpc          <= rip;
-                                rm_mode      <= rm_prev_mode;
-                                ric_gie      <= '1';
-                                flush        := '1';
+                                rpc     <= rip;
+                                rm_mode <= rm_prev_mode;
+                                ric_gie <= '1';
+                                flush   := '1';
                             when others => null;
                         end case;
 
@@ -1369,6 +1429,10 @@ begin
                                     ric_pending(4) <= '1';
                                 when others => null;
                             end case;
+                            -- Jump with AM_ILLEGAL addressing mode → illegal opcode fault
+                            if cw_pc_src = PC_JUMP and instr_am = AM_ILLEGAL then
+                                ill_opcode <= '1';
+                            end if;
                         end if;
 
                         end if; -- cond_met
@@ -1411,23 +1475,30 @@ begin
                     ill_opcode <= '0';
                 else
                     raw_stall := '0';
-                    de_valid  <= fd_valid;
-                    de_instr  <= fd_instr;
-                    de_pc     <= fd_pc;
-                    de_cw     <= CW_ROM(
-                        to_integer(unsigned(fd_instr(15 downto 10))) * 8 +
-                        to_integer(micro_step));
-                    de_rs_val <= regfile(to_integer(unsigned(fd_instr(6 downto 4))));
-                    de_rd_val <= regfile(to_integer(unsigned(fd_instr(9 downto 7))));
-                    if micro_step = 0 and fd_valid = '1' and
-                       CW_ROM(to_integer(unsigned(fd_instr(15 downto 10))) * 8) = CW_NOP and
-                       to_integer(unsigned(fd_instr(15 downto 10))) /= OP_NOP then
-                        ill_opcode <= '1';
-                    else
-                        ill_opcode <= '0';
-                    end if;
-                end if;
+                    
+                    if cw_last_step = '1' then
+                        de_valid  <= fd_valid;
+                        de_instr  <= fd_instr;
+                        de_pc     <= fd_pc;
+                        -- always fetch step 0 for new instruction
+                        de_cw     <= CW_ROM(
+                            to_integer(unsigned(fd_instr(15 downto 10))) * 8);
 
+                        if fd_valid = '1' and CW_ROM(to_integer(unsigned(fd_instr(15 downto 10))) * 8) = CW_NOP and to_integer(unsigned(fd_instr(15 downto 10))) /= OP_NOP then
+                            ill_opcode <= '1';
+                        else
+                            ill_opcode <= '0';
+                        end if;
+                        
+                    else
+                        -- We are in the middle of a multi-step instruction!
+                        -- Freeze de_valid, de_instr, and de_pc. Only advance the control word.
+                        -- We use de_instr (because fd_instr holds the next word) 
+                        -- and look ahead to micro_step + 1 for the next clock cycle.
+                        de_cw <= CW_ROM(to_integer(unsigned(de_instr(15 downto 10))) * 8 + to_integer(micro_step) + 1);
+                    end if;
+
+                end if;
                 
 
                 -- ===========================================================
@@ -1436,15 +1507,16 @@ begin
                 -- On raw_stall rpc is NOT incremented so the same address is
                 -- re-presented to the ROM next cycle when the stall clears.
                 -- ===========================================================
-                if flush = '0' and raw_stall = '0'
-                   and (micro_step = 0 or cw_last_step = '1') then
+                if flush = '0' and raw_stall = '0' and
+                   (cw_last_step = '1' or 
+                   (micro_step = 0 and to_integer(unsigned(de_instr(15 downto 10))) = OP_LOADIMM) or
+                   (micro_step = 0 and cw_pc_src = PC_JUMP and instr_am /= AM_INDIRECT and instr_am /= AM_ILLEGAL)) then
+                    
                     fd_instr <= idata;
                     fd_pc    <= rpc;
                     fd_valid <= '1';
                     rpc      <= std_logic_vector(unsigned(rpc) + 1);
-                end if;
-
-            end if; -- reset
+                end if;            end if; -- reset
         end if; -- rising_edge
     end process;
 
