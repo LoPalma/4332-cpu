@@ -788,10 +788,14 @@ architecture rtl of cpu is
     -- -----------------------------------------------------------------------
     -- Interrupt controller signals
     -- -----------------------------------------------------------------------
-    signal int_pending_vec : integer range 0 to 7 := 0; -- winning vector
+    signal int_pending_vec : integer range 0 to 7 := 0; -- winning vector (combinational)
     signal int_request     : std_logic := '0';           -- interrupt wants service
     signal int_entry       : std_logic := '0';           -- currently in entry seq
     signal int_step        : unsigned(2 downto 0) := (others => '0');
+    -- Latched pending vector: captured when int_entry is triggered so the
+    -- entry state machine uses a stable vector even after the combinational
+    -- ill_opcode / priv_fault / IRQ sources change during the flush.
+    signal int_latched_vec : integer range 0 to 7 := 0;
 
     -- -----------------------------------------------------------------------
     -- Internal combinational wires
@@ -1219,6 +1223,7 @@ begin
                 micro_step     <= (others => '0');
                 int_entry      <= '0';
                 int_step       <= (others => '0');
+                int_latched_vec <= 0;
                 imm_word       <= (others => '0');
                 jmp_word       <= (others => '0');
 
@@ -1249,7 +1254,7 @@ begin
                             when "000" =>
                                 ric_gie             <= '0';         -- GIE off
                                 -- Clear the pending bit for the vector being serviced
-                                ric_pending(int_pending_vec) <= '0';
+                                ric_pending(int_latched_vec) <= '0';
                             when "001" =>
                                 rip          <= rpc;                                -- save PC
                             when "010" =>
@@ -1259,11 +1264,11 @@ begin
                                 xr(0)        <= de_pc;                              -- faulting PC
                                 xr(1)        <= x"000" &
                                                 std_logic_vector(
-                                                    to_unsigned(int_pending_vec,4));
+                                                    to_unsigned(int_latched_vec,4));
                                 xr(2)        <= de_instr;                           -- faulting instr
                                 xr(3)        <= mem_addr;                           -- faulting addr
                             when "100" =>
-                                rpc          <= riv(int_pending_vec);               -- jump to handler
+                                rpc          <= riv(int_latched_vec);               -- jump to handler
                                 flush        := '1';
                                 int_entry    <= '0';
                                 int_step     <= (others => '0');
@@ -1444,9 +1449,13 @@ begin
 
                     -- Check for pending interrupt at instruction boundary
                     if int_request = '1' and cw_last_step = '1' and int_entry = '0' then
-                        int_entry <= '1';
-                        int_step  <= (others => '0');
-                        flush     := '1';
+                        int_entry       <= '1';
+                        int_step        <= (others => '0');
+                        -- Latch the winning vector NOW. ill_opcode/priv_fault
+                        -- get cleared on the flush below, which would cause the
+                        -- combinational int_pending_vec to collapse back to 0.
+                        int_latched_vec <= int_pending_vec;
+                        flush           := '1';
                     end if;
 
                 end if; -- de_valid
