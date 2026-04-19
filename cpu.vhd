@@ -1074,15 +1074,17 @@ begin
             when cw_sp_op = SP_PUSH
         else rsp
             when (cw_sp_op = SP_POP or
-                  to_integer(unsigned(instr_opcode)) = OP_PEEK)
+                  to_integer(unsigned(instr_opcode)) = OP_PEEK or
+                  to_integer(unsigned(instr_opcode)) = OP_POP  or
+                  to_integer(unsigned(instr_opcode)) = OP_RET)
         else regfile(to_integer(unsigned(instr_rs)));
 
     with cw_mem_src select mem_wdata <=
-        regfile(to_integer(unsigned(instr_rs))) when MS_RS,
-        rsp                                     when MS_SP,
-        de_pc                                   when MS_PC,
-        x"000" & instr_imm                      when MS_IMM,
-        (others => '0')                         when others;
+        regfile(to_integer(unsigned(instr_rs)))        when MS_RS,
+        rsp                                            when MS_SP,
+        std_logic_vector(unsigned(de_pc) + 1)          when MS_PC,
+        x"000" & instr_imm                             when MS_IMM,
+        (others => '0')                                when others;
 
     -- Drive data bus outputs
     -- dwe and dbe are gated on cond_met so a condition-not-met store/load
@@ -1183,10 +1185,11 @@ begin
     -- Main clocked pipeline + execute
     -- -----------------------------------------------------------------------
     process(clk)
-        variable flush     : std_logic;
-        variable new_sp    : unsigned(15 downto 0);
-        variable take_int  : std_logic;
-        variable raw_stall : std_logic;
+        variable flush          : std_logic;
+        variable new_sp         : unsigned(15 downto 0);
+        variable take_int       : std_logic;
+        variable raw_stall      : std_logic;
+        variable branch_taken_v : std_logic;
 
         variable ex_wr_idx : integer range 0 to 7;
         variable fd_rs_idx : integer range 0 to 7;
@@ -1195,29 +1198,29 @@ begin
         if rising_edge(clk) then
             if reset = '1' then
                 -- Reset state
-                rpc          <= x"0000";
-                rsp          <= x"BFFE";
-                rip          <= (others => '0');
-                rrp          <= (others => '0');
-                rm_mode      <= '1';
-                rm_prev_mode <= '0';
-                ric_gie      <= '0';
-                ric_enable   <= (others => '0');
-                ric_pending  <= (others => '0');
-                regfile      <= (others => (others => '0'));
-                riv          <= (others => (others => '0'));
-                xr           <= (others => (others => '0'));
-                flag_z       <= '0';
-                flag_c       <= '0';
-                flag_n       <= '0';
-                flag_v       <= '0';
-                fd_valid     <= '0';
-                de_valid     <= '0';
-                micro_step   <= (others => '0');
-                int_entry    <= '0';
-                int_step     <= (others => '0');
-                imm_word     <= (others => '0');
-                jmp_word     <= (others => '0');
+                rpc            <= x"0000";
+                rsp            <= x"BFFE";
+                rip            <= (others => '0');
+                rrp            <= (others => '0');
+                rm_mode        <= '1';
+                rm_prev_mode   <= '0';
+                ric_gie        <= '0';
+                ric_enable     <= (others => '0');
+                ric_pending    <= (others => '0');
+                regfile        <= (others => (others => '0'));
+                riv            <= (others => (others => '0'));
+                xr             <= (others => (others => '0'));
+                flag_z         <= '0';
+                flag_c         <= '0';
+                flag_n         <= '0';
+                flag_v         <= '0';
+                fd_valid       <= '0';
+                de_valid       <= '0';
+                micro_step     <= (others => '0');
+                int_entry      <= '0';
+                int_step       <= (others => '0');
+                imm_word       <= (others => '0');
+                jmp_word       <= (others => '0');
 
             else
                 flush     := '0';
@@ -1272,15 +1275,15 @@ begin
                         end if;
 
                     else
-                        -- -------------------------------------------------------
-                        -- Normal instruction execution
-                        -- Gate entire effect on cond_met: if condition not met,
-                        -- the instruction executes as a NOP (no writeback, no
-                        -- memory write, no PC change, no side effects).
-                        -- Branches/jumps use COND=00 (always) so cond_met='1'.
-                        -- -------------------------------------------------------
-                        -- Micro-sequencer always advances regardless of condition.
-                        -- A not-taken instruction burns its step slot as a NOP.
+
+                        -- ---------------------------------------------------------------------------                        -- Normal Instruction Execution:
+                        -- Side effects are suppressed if 'cond_met' is false, but the micro-sequencer
+                        -- continues to run until 'cw_last_step' is signaled. This ensures that 
+                        -- multi-cycle/multi-word instructions always clear the pipeline stages 
+                        -- before the next instruction is fetched, regardless of whether the 
+                        -- operation was "skipped" by a condition.
+                        -- ---------------------------------------------------------------------------
+                        
                         if cw_last_step = '1' then
                             micro_step <= (others => '0');
                         else
@@ -1473,34 +1476,42 @@ begin
                     de_valid   <= '0';
                     de_cw      <= CW_NOP;
                     ill_opcode <= '0';
+                    -- Invalidate FD so the stale fd_instr isn't latched into DE
+                    -- on the next cycle. FETCH will refill fd_instr from the
+                    -- correct post-jump address on the cycle after the flush.
+                    fd_valid   <= '0';
                 else
                     raw_stall := '0';
                     
+                    -- Advance DECODE to a new instruction ONLY when the current one finishes
                     if cw_last_step = '1' then
                         de_valid  <= fd_valid;
                         de_instr  <= fd_instr;
                         de_pc     <= fd_pc;
-                        -- always fetch step 0 for new instruction
-                        de_cw     <= CW_ROM(
-                            to_integer(unsigned(fd_instr(15 downto 10))) * 8);
-
-                        if fd_valid = '1' and CW_ROM(to_integer(unsigned(fd_instr(15 downto 10))) * 8) = CW_NOP and to_integer(unsigned(fd_instr(15 downto 10))) /= OP_NOP then
-                            ill_opcode <= '1';
+                        
+                        -- ONLY decode the instruction if it is valid (not a bubble)
+                        if fd_valid = '1' then
+                            -- always fetch step 0 for new instruction
+                            de_cw <= CW_ROM(to_integer(unsigned(fd_instr(15 downto 10))) * 8);
+                            
+                            if CW_ROM(to_integer(unsigned(fd_instr(15 downto 10))) * 8) = CW_NOP and to_integer(unsigned(fd_instr(15 downto 10))) /= OP_NOP then
+                                ill_opcode <= '1';
+                            else
+                                ill_opcode <= '0';
+                            end if;
                         else
+                            -- It's a bubble: inject a NOP so we don't accidentally start a multi-step ghost sequence
+                            de_cw <= CW_NOP;
                             ill_opcode <= '0';
                         end if;
                         
                     else
                         -- We are in the middle of a multi-step instruction!
                         -- Freeze de_valid, de_instr, and de_pc. Only advance the control word.
-                        -- We use de_instr (because fd_instr holds the next word) 
-                        -- and look ahead to micro_step + 1 for the next clock cycle.
                         de_cw <= CW_ROM(to_integer(unsigned(de_instr(15 downto 10))) * 8 + to_integer(micro_step) + 1);
                     end if;
 
                 end if;
-                
-
                 -- ===========================================================
                 -- FETCH stage — latch instruction from async ROM into FD regs.
                 -- Suppressed on flush (branch taken) or raw_stall (RAW hazard).
@@ -1515,8 +1526,13 @@ begin
                     fd_instr <= idata;
                     fd_pc    <= rpc;
                     fd_valid <= '1';
-                    rpc      <= std_logic_vector(unsigned(rpc) + 1);
-                end if;            end if; -- reset
+                    
+                    -- ONLY increment rpc if we didn't just perform a branch/jump in the EXECUTE stage above
+                    if cw_pc_src /= PC_JUMP or branch_taken = '0' then
+                        rpc <= std_logic_vector(unsigned(rpc) + 1);
+                    end if;
+                end if;
+            end if;
         end if; -- rising_edge
     end process;
 
