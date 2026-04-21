@@ -1,0 +1,99 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Tue Apr 21 21:52:20 2026
+# Process ID         : 70492
+# Current directory  : /home/palma/projects/fpga-cpu
+# Command line       : vivado -mode batch -source vivado_project.tcl
+# Log file           : /home/palma/projects/fpga-cpu/vivado.log
+# Journal file       : /home/palma/projects/fpga-cpu/vivado.jou
+# Running On         : thinkpad-t480
+# Platform           : openSUSE
+# Operating System   : openSUSE Tumbleweed
+# Processor Detail   : Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
+# CPU Frequency      : 3600.102 MHz
+# CPU Physical cores : 4
+# CPU Logical cores  : 8
+# Host memory        : 16497 MB
+# Swap memory        : 2147 MB
+# Total Virtual      : 18645 MB
+# Available Virtual  : 11680 MB
+#-----------------------------------------------------------
+source vivado_project.tcl
+# create_project 4328_cpu ./vivado_proj -part xc7a35tcpg236-1 -force
+# set_property target_language VHDL [current_project]
+# set sources {
+#     ram.vhd
+#     memory.vhd
+#     peripherals.vhd
+#     spi.vhd
+#     memory_bus.vhd
+#     cpu.vhd
+#     top.vhd
+# }
+# add_files $sources
+# set_property FILE_TYPE {VHDL 2008} [get_files $sources]
+# add_files -fileset constrs_1 top_constraints.xdc
+# set_property top top [current_fileset]
+# update_compile_order -fileset sources_1
+# launch_runs synth_1 -jobs 4
+WARNING: [Vivado 12-7122] Auto Incremental Compile:: No reference checkpoint was found in run synth_1. Auto-incremental flow will not be run, the standard flow will be run instead.
+[Tue Apr 21 21:52:29 2026] Launched synth_1...
+Run output will be captured here: /home/palma/projects/fpga-cpu/vivado_proj/4328_cpu.runs/synth_1/runme.log
+# wait_on_run synth_1
+[Tue Apr 21 21:52:29 2026] Waiting for synth_1 to finish...
+
+*** Running vivado
+    with args -log top.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source top.tcl
+
+
+****** Vivado v2025.2 (64-bit)
+  **** SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+  **** IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+  **** SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+  **** Start of session at: Tue Apr 21 21:52:33 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source top.tcl -notrace
+Command: synth_design -top top -part xc7a35tcpg236-1
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Device 21-403] Loading part xc7a35tcpg236-1
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 7 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 70735
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:08 ; elapsed = 00:00:08 . Memory (MB): peak = 2186.039 ; gain = 480.875 ; free physical = 268 ; free virtual = 8696
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'top' [/home/palma/projects/fpga-cpu/top.vhd:18]
+INFO: [Synth 8-638] synthesizing module 'cpu' [/home/palma/projects/fpga-cpu/cpu.vhd:89]
+INFO: [Synth 8-226] default block is never used [/home/palma/projects/fpga-cpu/cpu.vhd:906]
+INFO: [Synth 8-226] default block is never used [/home/palma/projects/fpga-cpu/cpu.vhd:1086]
+ERROR: [Synth 8-690] width mismatch in assignment; target has 16 bits, source has 15 bits [/home/palma/projects/fpga-cpu/cpu.vhd:1134]
+ERROR: [Synth 8-285] failed synthesizing module 'cpu' [/home/palma/projects/fpga-cpu/cpu.vhd:89]
+ERROR: [Synth 8-285] failed synthesizing module 'top' [/home/palma/projects/fpga-cpu/top.vhd:18]
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:10 ; elapsed = 00:00:11 . Memory (MB): peak = 2283.008 ; gain = 577.844 ; free physical = 382 ; free virtual = 8752
+---------------------------------------------------------------------------------
+RTL Elaboration failed
+INFO: [Common 17-83] Releasing license: Synthesis
+10 Infos, 0 Warnings, 0 Critical Warnings and 4 Errors encountered.
+synth_design failed
+synth_design: Time (s): cpu = 00:00:16 ; elapsed = 00:00:16 . Memory (MB): peak = 2283.016 ; gain = 706.031 ; free physical = 375 ; free virtual = 8745
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1702.314; main = 1412.474; forked = 289.841
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3270.438; main = 2283.012; forked = 987.441
+ERROR: [Common 17-69] Command failed: Synthesis failed - please see the console or run log file for details
+INFO: [Common 17-206] Exiting Vivado at Tue Apr 21 21:52:57 2026...
+[Tue Apr 21 21:52:57 2026] synth_1 finished
+ERROR: [Vivado 12-13638] Failed runs(s) : 'synth_1'
+wait_on_runs: Time (s): cpu = 00:00:48 ; elapsed = 00:00:28 . Memory (MB): peak = 1577.012 ; gain = 0.000 ; free physical = 1766 ; free virtual = 10138
+ERROR: [Common 17-39] 'wait_on_runs' failed due to earlier errors.
+
+    while executing
+"wait_on_run synth_1"
+    (file "vivado_project.tcl" line 29)
+INFO: [Common 17-206] Exiting Vivado at Tue Apr 21 21:52:57 2026...

@@ -8,7 +8,7 @@ set -euo pipefail
 # ------------------------------------------------------------------ #
 # Config
 # ------------------------------------------------------------------ #
-TOP=top # top-level entity for sim (change to top for synthesis)
+TOP=cpu_tb                     # top-level entity for sim (change to top for synthesis)
 WORK=work
 STD=08                         # VHDL-2008
 WAVE=wave.vcd
@@ -17,8 +17,8 @@ WAVE=wave.vcd
 SRCS=(
     ram.vhd
     memory.vhd          # entity name: memory  — also used as rom by memory_bus
-    spi.vhd
     peripherals.vhd
+    spi.vhd
     memory_bus.vhd
     cpu.vhd
     top.vhd
@@ -98,7 +98,7 @@ create_project 4328_cpu ./vivado_proj -part xc7a35tcpg236-1 -force
 set_property target_language VHDL [current_project]
 
 # Add sources
-set sources {
+add_files {
     ram.vhd
     memory.vhd
     peripherals.vhd
@@ -108,9 +108,7 @@ set sources {
     top.vhd
 }
 
-add_files $sources
-
-set_property FILE_TYPE {VHDL 2008} [get_files $sources]
+set_property FILE_TYPE {VHDL 2008} [get_files *.vhd]
 
 # Add constraints
 add_files -fileset constrs_1 top_constraints.xdc

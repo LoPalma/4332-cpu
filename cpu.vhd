@@ -1131,7 +1131,7 @@ begin
                     when OP_GETMODE  =>
                         wb_data <= "00000000000000" & rm_prev_mode & rm_mode;
                     when OP_READRIC  =>
-                        wb_data <= ric_pending & ric_enable(6 downto 1) & ric_gie;
+                        wb_data <= ric_pending & ric_enable(7 downto 1) & ric_gie;
                     when OP_READRIV  =>
                         wb_data <= riv(to_integer(unsigned(de_instr(6 downto 4))));
                     when others      =>
