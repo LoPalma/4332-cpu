@@ -1,2 +1,37 @@
-*.cf
+# --- Vivado Temporary/Journal Files ---
+*.log
+*.jou
+*.str
+*.os
+*.jou
+vivado_*.backup.*
+.Xil/
+.cache/
+
+# --- Synthesis & Implementation Outputs (The Heavy Stuff) ---
+# We don't track these because they are generated from your VHDL
+*.bit
+*.bin
+*.dcp
+*.rpt
+*.pb
+*.xml
+*.vdi
+*.tcl.user
+
+# --- Simulation Files ---
 *.vcd
+*.cf
+xsim.dir/
+*.wdb
+*.jou
+wave.vcd
+
+# --- Project Bloat ---
+# If you use the "Write Project Tcl" method, you can ignore the whole folder
+# For now, let's just ignore the heavy internal parts
+vivado_proj/*.cache/
+vivado_proj/*.hw/
+vivado_proj/*.ip_user_files/
+vivado_proj/*.runs/
+vivado_proj/*.sim/
