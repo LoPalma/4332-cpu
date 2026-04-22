@@ -113,7 +113,7 @@ add_files $sources
 set_property FILE_TYPE {VHDL 2008} [get_files $sources]
 
 # Add constraints
-add_files -fileset constrs_1 top_constraints.xdc
+add_files -fileset constrs_1 basys3.xdc
 
 # Set top
 set_property top top [current_fileset]

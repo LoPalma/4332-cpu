@@ -1,0 +1,465 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Wed Apr 22 20:40:58 2026
+# Process ID         : 184660
+# Current directory  : /home/palma/projects/fpga-cpu
+# Command line       : vivado -mode batch -source vivado_project.tcl
+# Log file           : /home/palma/projects/fpga-cpu/vivado.log
+# Journal file       : /home/palma/projects/fpga-cpu/vivado.jou
+# Running On         : thinkpad-t480
+# Platform           : openSUSE
+# Operating System   : openSUSE Tumbleweed
+# Processor Detail   : Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
+# CPU Frequency      : 3600.026 MHz
+# CPU Physical cores : 4
+# CPU Logical cores  : 8
+# Host memory        : 16497 MB
+# Swap memory        : 2147 MB
+# Total Virtual      : 18645 MB
+# Available Virtual  : 13279 MB
+#-----------------------------------------------------------
+source vivado_project.tcl
+# create_project 4328_cpu ./vivado_proj -part xc7a35tcpg236-1 -force
+create_project: Time (s): cpu = 00:00:25 ; elapsed = 00:00:06 . Memory (MB): peak = 1580.848 ; gain = 73.055 ; free physical = 5066 ; free virtual = 11727
+# set_property target_language VHDL [current_project]
+# set sources {
+#     ram.vhd
+#     memory.vhd
+#     peripherals.vhd
+#     spi.vhd
+#     memory_bus.vhd
+#     cpu.vhd
+#     top.vhd
+# }
+# add_files $sources
+# set_property FILE_TYPE {VHDL 2008} [get_files $sources]
+# add_files -fileset constrs_1 top_constraints.xdc
+# set_property top top [current_fileset]
+# update_compile_order -fileset sources_1
+# launch_runs synth_1 -jobs 4
+WARNING: [Vivado 12-7122] Auto Incremental Compile:: No reference checkpoint was found in run synth_1. Auto-incremental flow will not be run, the standard flow will be run instead.
+[Wed Apr 22 20:41:11 2026] Launched synth_1...
+Run output will be captured here: /home/palma/projects/fpga-cpu/vivado_proj/4328_cpu.runs/synth_1/runme.log
+# wait_on_run synth_1
+[Wed Apr 22 20:41:11 2026] Waiting for synth_1 to finish...
+
+*** Running vivado
+    with args -log top.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source top.tcl
+
+
+****** Vivado v2025.2 (64-bit)
+  **** SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+  **** IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+  **** SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+  **** Start of session at: Wed Apr 22 20:41:16 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source top.tcl -notrace
+Command: synth_design -top top -part xc7a35tcpg236-1
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Device 21-403] Loading part xc7a35tcpg236-1
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 7 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 184926
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 2186.320 ; gain = 482.188 ; free physical = 3690 ; free virtual = 10478
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'top' [/home/palma/projects/fpga-cpu/top.vhd:59]
+INFO: [Synth 8-638] synthesizing module 'cpu' [/home/palma/projects/fpga-cpu/cpu.vhd:89]
+INFO: [Synth 8-226] default block is never used [/home/palma/projects/fpga-cpu/cpu.vhd:906]
+INFO: [Synth 8-226] default block is never used [/home/palma/projects/fpga-cpu/cpu.vhd:1086]
+INFO: [Synth 8-256] done synthesizing module 'cpu' (0#1) [/home/palma/projects/fpga-cpu/cpu.vhd:89]
+INFO: [Synth 8-638] synthesizing module 'memory_bus' [/home/palma/projects/fpga-cpu/memory_bus.vhd:36]
+INFO: [Synth 8-638] synthesizing module 'memory' [/home/palma/projects/fpga-cpu/memory.vhd:16]
+INFO: [Synth 8-256] done synthesizing module 'memory' (0#1) [/home/palma/projects/fpga-cpu/memory.vhd:16]
+INFO: [Synth 8-638] synthesizing module 'peripherals' [/home/palma/projects/fpga-cpu/peripherals.vhd:33]
+INFO: [Synth 8-638] synthesizing module 'spi' [/home/palma/projects/fpga-cpu/spi.vhd:19]
+INFO: [Synth 8-256] done synthesizing module 'spi' (0#1) [/home/palma/projects/fpga-cpu/spi.vhd:19]
+INFO: [Synth 8-256] done synthesizing module 'peripherals' (0#1) [/home/palma/projects/fpga-cpu/peripherals.vhd:33]
+INFO: [Synth 8-638] synthesizing module 'ram' [/home/palma/projects/fpga-cpu/ram.vhd:26]
+INFO: [Synth 8-256] done synthesizing module 'ram' (0#1) [/home/palma/projects/fpga-cpu/ram.vhd:26]
+INFO: [Synth 8-256] done synthesizing module 'memory_bus' (0#1) [/home/palma/projects/fpga-cpu/memory_bus.vhd:36]
+INFO: [Synth 8-256] done synthesizing module 'top' (0#1) [/home/palma/projects/fpga-cpu/top.vhd:59]
+WARNING: [Synth 8-6014] Unused sequential element rrp_reg was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1208]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[0] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[1] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[2] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[3] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[4] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[5] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[6] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element xr_reg[7] was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1216]
+WARNING: [Synth 8-6014] Unused sequential element flag_v_reg was removed.  [/home/palma/projects/fpga-cpu/cpu.vhd:1220]
+WARNING: [Synth 8-7129] Port address[0] in module ram is either unconnected or has no load
+WARNING: [Synth 8-7129] Port address[0] in module memory is either unconnected or has no load
+WARNING: [Synth 8-7129] Port address[13] in module memory_bus is either unconnected or has no load
+WARNING: [Synth 8-7129] Port address[12] in module memory_bus is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:08 ; elapsed = 00:00:08 . Memory (MB): peak = 2288.289 ; gain = 584.156 ; free physical = 3591 ; free virtual = 10384
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2300.164 ; gain = 596.031 ; free physical = 3582 ; free virtual = 10375
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2300.164 ; gain = 596.031 ; free physical = 3582 ; free virtual = 10375
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2300.164 ; gain = 0.000 ; free physical = 3582 ; free virtual = 10375
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/home/palma/projects/fpga-cpu/top_constraints.xdc]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:1]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:2]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:3]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:4]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:5]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:6]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:7]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:8]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:9]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:10]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:11]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:12]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:13]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:14]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:15]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:16]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:17]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:18]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:19]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:20]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:21]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:22]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:23]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:24]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:25]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:26]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:27]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:28]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:29]
+CRITICAL WARNING: [Designutils 20-1307] Command 'library' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:31]
+CRITICAL WARNING: [Designutils 20-1307] Command 'use' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:32]
+CRITICAL WARNING: [Designutils 20-1307] Command 'use' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:33]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:35]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:36]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:37]
+CRITICAL WARNING: [Designutils 20-1307] Command 'entity' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:39]
+CRITICAL WARNING: [Designutils 20-1307] Command 'port' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:40]
+CRITICAL WARNING: [Designutils 20-1307] Command 'clk' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:41]
+CRITICAL WARNING: [Designutils 20-1307] Command 'reset' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:42]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:44]
+CRITICAL WARNING: [Designutils 20-1307] Command 'spi_clk' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:45]
+CRITICAL WARNING: [Designutils 20-1307] Command 'spi_mosi' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:46]
+CRITICAL WARNING: [Designutils 20-1307] Command 'spi_miso' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:47]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:49]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:50]
+CRITICAL WARNING: [Designutils 20-1307] Command 'gpio' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:51]
+CRITICAL WARNING: [Designutils 20-1307] Command ')' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:52]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'entity', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:53]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:55]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:56]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:57]
+CRITICAL WARNING: [Designutils 20-1307] Command 'architecture' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:59]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:61]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:62]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:63]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:64]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:65]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:66]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:67]
+CRITICAL WARNING: [Designutils 20-1307] Command 'type' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:68]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:70]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:71]
+CRITICAL WARNING: [Designutils 20-1307] Command 'constant' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:72]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:73]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:74]
+CRITICAL WARNING: [Designutils 20-970] Unrecognized or unsupported command '0      => x"0000",   -- NOP' found in constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:75]
+CRITICAL WARNING: [Designutils 20-970] Unrecognized or unsupported command '1      => x"0000",   -- NOP' found in constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:76]
+CRITICAL WARNING: [Designutils 20-1307] Command 'others' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:77]
+CRITICAL WARNING: [Designutils 20-1307] Command ')' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:78]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:80]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:81]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:82]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:84]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:85]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:86]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:87]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:88]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:90]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:91]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:92]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:93]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:94]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:95]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:97]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:98]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:99]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:100]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:101]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:102]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:103]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:104]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:105]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:107]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:108]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:109]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:110]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:111]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:112]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:113]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:114]
+CRITICAL WARNING: [Designutils 20-1307] Command 'signal' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:115]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:117]
+CRITICAL WARNING: [Designutils 20-1307] Command '--' is not supported in the xdc constraint file. [/home/palma/projects/fpga-cpu/top_constraints.xdc:118]
+INFO: [Common 17-14] Message 'Designutils 20-1307' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings. [/home/palma/projects/fpga-cpu/top_constraints.xdc:118]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'if', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:135]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'process', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:136]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'if', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:163]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'if', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:164]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'if', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:165]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'process', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:166]
+CRITICAL WARNING: [Common 17-165] Too many positional options when parsing 'architecture', please type 'endgroup -help' for usage info. [/home/palma/projects/fpga-cpu/top_constraints.xdc:223]
+Finished Parsing XDC File [/home/palma/projects/fpga-cpu/top_constraints.xdc]
+INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [/home/palma/projects/fpga-cpu/top_constraints.xdc]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/top_propImpl.xdc].
+Resolution: To avoid this warning, move constraints listed in [.Xil/top_propImpl.xdc] to another XDC file and exclude this new file from synthesis with the used_in_synthesis property (File Properties dialog in GUI) and re-run elaboration/synthesis.
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2406.934 ; gain = 0.000 ; free physical = 3537 ; free virtual = 10337
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2406.969 ; gain = 0.000 ; free physical = 3536 ; free virtual = 10337
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:16 ; elapsed = 00:00:17 . Memory (MB): peak = 2406.969 ; gain = 702.836 ; free physical = 3552 ; free virtual = 10353
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7a35tcpg236-1
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:16 ; elapsed = 00:00:17 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3552 ; free virtual = 10353
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:16 ; elapsed = 00:00:17 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3552 ; free virtual = 10353
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'spi'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    idle |                               00 |                               00
+                 clock_0 |                               01 |                               01
+                 clock_1 |                               10 |                               10
+                    last |                               11 |                               11
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'User encoding' in module 'spi'
+WARNING: [Synth 8-13157] FSM with state register 'state_reg' is not having reset. This may cause incorrect behavior. User should consider using FSM_SAFE_STATE attribute on the register
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:18 ; elapsed = 00:00:18 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3546 ; free virtual = 10350
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   33 Bit       Adders := 3     
+	   3 Input   33 Bit       Adders := 1     
+	   2 Input   16 Bit       Adders := 5     
+	   2 Input    5 Bit       Adders := 1     
+	   2 Input    3 Bit       Adders := 2     
++---XORs : 
+	   2 Input     32 Bit         XORs := 1     
++---Registers : 
+	               32 Bit    Registers := 1     
+	               16 Bit    Registers := 31    
+	                8 Bit    Registers := 5     
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 2     
+	                5 Bit    Registers := 1     
+	                4 Bit    Registers := 2     
+	                3 Bit    Registers := 3     
+	                1 Bit    Registers := 14    
++---RAMs : 
+	              32K Bit	(2048 X 16 bit)          RAMs := 3     
++---Muxes : 
+	   3 Input   32 Bit        Muxes := 2     
+	   2 Input   32 Bit        Muxes := 3     
+	   2 Input   16 Bit        Muxes := 89    
+	   3 Input   16 Bit        Muxes := 22    
+	   5 Input   16 Bit        Muxes := 1     
+	   4 Input   16 Bit        Muxes := 1     
+	   2 Input    8 Bit        Muxes := 16    
+	   6 Input    8 Bit        Muxes := 1     
+	   4 Input    8 Bit        Muxes := 2     
+	   3 Input    6 Bit        Muxes := 1     
+	   4 Input    5 Bit        Muxes := 1     
+	   2 Input    3 Bit        Muxes := 2     
+	   5 Input    3 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 6     
+	   3 Input    2 Bit        Muxes := 1     
+	   4 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 62    
+	   6 Input    1 Bit        Muxes := 8     
+	   5 Input    1 Bit        Muxes := 2     
+	   7 Input    1 Bit        Muxes := 18    
+	   4 Input    1 Bit        Muxes := 6     
+	   3 Input    1 Bit        Muxes := 1     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 90 (col length:60)
+BRAMs: 100 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 1st driver pin 'bus_0/peripherals_0/ioport_reg_reg[3]/Q' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 2nd driver pin 'GND' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6858] multi-driven net Q is connected to at least one constant driver which has been preserved, other driver is ignored [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 1st driver pin 'bus_0/peripherals_0/ioport_reg_reg[2]/Q' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 2nd driver pin 'GND' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6858] multi-driven net Q is connected to at least one constant driver which has been preserved, other driver is ignored [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 1st driver pin 'bus_0/peripherals_0/ioport_reg_reg[1]/Q' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 2nd driver pin 'GND' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6858] multi-driven net Q is connected to at least one constant driver which has been preserved, other driver is ignored [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 1st driver pin 'bus_0/peripherals_0/ioport_reg_reg[0]/Q' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6859] multi-driven net on pin Q with 2nd driver pin 'GND' [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+CRITICAL WARNING: [Synth 8-6858] multi-driven net Q is connected to at least one constant driver which has been preserved, other driver is ignored [/home/palma/projects/fpga-cpu/peripherals.vhd:47]
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:21 ; elapsed = 00:00:22 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3541 ; free virtual = 10350
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:21 ; elapsed = 00:00:22 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3541 ; free virtual = 10350
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:22 ; elapsed = 00:00:22 . Memory (MB): peak = 2414.938 ; gain = 710.805 ; free physical = 3541 ; free virtual = 10351
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+-----+------+
+|      |Cell |Count |
++------+-----+------+
+|1     |BUFG |     1|
+|2     |LUT1 |     1|
+|3     |LUT2 |     3|
+|4     |LUT3 |     1|
+|5     |LUT4 |     1|
+|6     |LUT5 |     1|
+|7     |LUT6 |     1|
+|8     |FDRE |     8|
+|9     |IBUF |     1|
+|10    |OBUF |     6|
++------+-----+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.719 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 12 critical warnings and 1 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:24 ; elapsed = 00:00:25 . Memory (MB): peak = 2504.719 ; gain = 693.781 ; free physical = 3463 ; free virtual = 10273
+Synthesis Optimization Complete : Time (s): cpu = 00:00:27 ; elapsed = 00:00:27 . Memory (MB): peak = 2504.727 ; gain = 800.586 ; free physical = 3463 ; free virtual = 10273
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2519.594 ; gain = 0.000 ; free physical = 3443 ; free virtual = 10253
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2670.246 ; gain = 0.000 ; free physical = 3501 ; free virtual = 10314
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: 68a6c251
+INFO: [Common 17-83] Releasing license: Synthesis
+32 Infos, 15 Warnings, 122 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:37 ; elapsed = 00:00:34 . Memory (MB): peak = 2670.281 ; gain = 1092.297 ; free physical = 3501 ; free virtual = 10314
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1810.679; main = 1778.651; forked = 283.965
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3402.383; main = 2670.250; forked = 987.441
+INFO: [runtcl-6] Synthesis results are not added to the cache due to CRITICAL_WARNING
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2694.258 ; gain = 0.000 ; free physical = 3500 ; free virtual = 10314
+INFO: [Common 17-1381] The checkpoint '/home/palma/projects/fpga-cpu/vivado_proj/4328_cpu.runs/synth_1/top.dcp' has been generated.
+INFO: [Vivado 12-24828] Executing command : report_utilization -file top_utilization_synth.rpt -pb top_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Wed Apr 22 20:41:57 2026...
+[Wed Apr 22 20:41:58 2026] synth_1 finished
+wait_on_runs: Time (s): cpu = 00:01:12 ; elapsed = 00:00:47 . Memory (MB): peak = 1580.848 ; gain = 0.000 ; free physical = 5005 ; free virtual = 11810
+INFO: [Common 17-206] Exiting Vivado at Wed Apr 22 20:41:58 2026...

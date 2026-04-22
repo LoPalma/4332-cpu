@@ -3,8 +3,8 @@
 # SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
 # IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
 # SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
-# Start of session at: Tue Apr 21 21:35:53 2026
-# Process ID         : 68574
+# Start of session at: Wed Apr 22 21:46:29 2026
+# Process ID         : 193616
 # Current directory  : /home/palma/projects/fpga-cpu
 # Command line       : vivado -mode batch -source vivado_project.tcl
 # Log file           : /home/palma/projects/fpga-cpu/vivado.log
@@ -13,27 +13,12 @@
 # Platform           : openSUSE
 # Operating System   : openSUSE Tumbleweed
 # Processor Detail   : Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
-# CPU Frequency      : 3599.994 MHz
+# CPU Frequency      : 3599.928 MHz
 # CPU Physical cores : 4
 # CPU Logical cores  : 8
 # Host memory        : 16497 MB
 # Swap memory        : 2147 MB
 # Total Virtual      : 18645 MB
-# Available Virtual  : 11423 MB
+# Available Virtual  : 12574 MB
 #-----------------------------------------------------------
 source vivado_project.tcl
-# create_project 4328_cpu ./vivado_proj -part xc7a35tcpg236-1 -force
-# set_property target_language VHDL [current_project]
-# set sources {
-#     ram.vhd
-#     memory.vhd
-#     peripherals.vhd
-#     spi.vhd
-#     memory_bus.vhd
-#     cpu.vhd
-#     top.vhd
-# }
-# add_files $sources
-# set_property FILE_TYPE {VHDL 2008} [current_fileset]
-ERROR: [Common 17-69] Command failed: Invalid property 'file_type' specified. Property does not exist.
-INFO: [Common 17-206] Exiting Vivado at Tue Apr 21 21:36:01 2026...

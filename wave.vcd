@@ -1,5 +1,5 @@
 $date
-  Tue Apr 21 22:07:16 2026
+  Wed Apr 22 21:46:14 2026
 $end
 $version
   GHDL v0
@@ -18,397 +18,203 @@ $upscope $end
 $scope module top $end
 $var reg 1 ! clk $end
 $var reg 1 " reset $end
-$var reg 1 # uart_tx $end
-$var reg 1 $ uart_rx $end
-$var reg 1 % spi_clk $end
-$var reg 1 & spi_mosi $end
-$var reg 1 ' spi_miso $end
-$var reg 4 ( gpio[3:0] $end
-$var reg 16 ) iaddr[15:0] $end
-$var reg 16 * idata[15:0] $end
-$var reg 16 + daddr[15:0] $end
-$var reg 16 , ddata_w[15:0] $end
-$var reg 16 - ddata_r[15:0] $end
-$var reg 1 . dwe $end
-$var reg 1 / dbe $end
-$var reg 2 0 dwmask[1:0] $end
-$var reg 16 1 led_nc[15:0] $end
-$var reg 7 2 seg_nc[6:0] $end
-$var reg 4 3 an_nc[3:0] $end
+$var reg 16 # led[15:0] $end
+$var reg 7 $ seg[6:0] $end
+$var reg 4 % an[3:0] $end
+$var reg 16 & iaddr[15:0] $end
+$var reg 16 ' idata[15:0] $end
+$var reg 16 ( daddr[15:0] $end
+$var reg 16 ) ddata_w[15:0] $end
+$var reg 16 * ddata_r[15:0] $end
+$var reg 1 + dwe $end
+$var reg 1 , dbe $end
+$var reg 2 - dwmask[1:0] $end
+$var reg 4 . cpu_irq[3:0] $end
+$var reg 18 / clk_div[17:0] $end
+$var reg 4 0 hex_val[3:0] $end
 $scope module cpu_0 $end
-$var reg 1 4 clk $end
-$var reg 1 5 reset $end
-$var reg 16 6 iaddr[15:0] $end
-$var reg 16 7 idata[15:0] $end
-$var reg 16 8 daddr[15:0] $end
-$var reg 16 9 ddata_w[15:0] $end
-$var reg 16 : ddata_r[15:0] $end
-$var reg 1 ; dwe $end
-$var reg 1 < dbe $end
-$var reg 2 = dwmask[1:0] $end
-$var reg 4 > irq[3:0] $end
+$var reg 1 1 clk $end
+$var reg 1 2 reset $end
+$var reg 16 3 iaddr[15:0] $end
+$var reg 16 4 idata[15:0] $end
+$var reg 16 5 daddr[15:0] $end
+$var reg 16 6 ddata_w[15:0] $end
+$var reg 16 7 ddata_r[15:0] $end
+$var reg 1 8 dwe $end
+$var reg 1 9 dbe $end
+$var reg 2 : dwmask[1:0] $end
+$var reg 4 ; irq[3:0] $end
 $comment regfile is not handled $end
-$var reg 16 ? rpc[15:0] $end
-$var reg 16 @ rsp[15:0] $end
-$var reg 16 A rip[15:0] $end
-$var reg 16 B rrp[15:0] $end
-$var reg 1 C rm_mode $end
-$var reg 1 D rm_prev_mode $end
-$var reg 1 E ric_gie $end
-$var reg 8 F ric_enable[7:0] $end
-$var reg 8 G ric_pending[7:0] $end
+$var reg 16 < rpc[15:0] $end
+$var reg 16 = rsp[15:0] $end
+$var reg 16 > rip[15:0] $end
+$var reg 16 ? rrp[15:0] $end
+$var reg 1 @ rm_mode $end
+$var reg 1 A rm_prev_mode $end
+$var reg 1 B ric_gie $end
+$var reg 8 C ric_enable[7:0] $end
+$var reg 8 D ric_pending[7:0] $end
 $comment riv is not handled $end
 $comment xr is not handled $end
-$var reg 1 H flag_z $end
-$var reg 1 I flag_c $end
-$var reg 1 J flag_n $end
-$var reg 1 K flag_v $end
-$var reg 16 L fd_instr[15:0] $end
-$var reg 16 M fd_pc[15:0] $end
-$var reg 1 N fd_valid $end
-$var reg 32 O de_cw[31:0] $end
-$var reg 16 P de_instr[15:0] $end
-$var reg 16 Q de_pc[15:0] $end
-$var reg 1 R de_valid $end
-$var reg 16 S de_rs_val[15:0] $end
-$var reg 16 T de_rd_val[15:0] $end
-$var reg 3 U micro_step[2:0] $end
-$var integer 32 V int_pending_vec $end
-$var reg 1 W int_request $end
-$var reg 1 X int_entry $end
-$var reg 3 Y int_step[2:0] $end
-$var integer 32 Z int_latched_vec $end
-$var reg 16 [ fetch_pc[15:0] $end
-$var reg 1 \ branch_taken $end
-$var reg 32 ] alu_result[31:0] $end
-$var reg 1 ^ alu_carry $end
-$var reg 1 _ alu_zero $end
-$var reg 1 ` alu_neg $end
-$var reg 1 a alu_ovf $end
-$var reg 16 b wb_data[15:0] $end
-$var reg 16 c mem_addr[15:0] $end
-$var reg 16 d mem_wdata[15:0] $end
-$var reg 4 e cw_alu_op[3:0] $end
-$var reg 3 f cw_src_b[2:0] $end
-$var reg 1 g cw_reg_we $end
-$var reg 1 h cw_rd_from_inst $end
-$var reg 3 i cw_wb_src[2:0] $end
-$var reg 1 j cw_width_from_inst $end
-$var reg 2 k cw_width[1:0] $end
-$var reg 1 l cw_mem_rd $end
-$var reg 1 m cw_mem_wr $end
-$var reg 1 n cw_mem_width $end
-$var reg 2 o cw_mem_src[1:0] $end
-$var reg 3 p cw_pc_src[2:0] $end
-$var reg 4 q cw_branch_cond[3:0] $end
-$var reg 3 r cw_sp_op[2:0] $end
-$var reg 1 s cw_priv_check $end
-$var reg 1 t cw_last_step $end
-$var reg 2 u eff_width[1:0] $end
-$var reg 1 v eff_half_sel $end
-$var reg 6 w instr_opcode[5:0] $end
-$var reg 3 x instr_rd[2:0] $end
-$var reg 3 y instr_rs[2:0] $end
-$var reg 4 z instr_imm[3:0] $end
-$var reg 2 { instr_cond[1:0] $end
-$var reg 2 | instr_am[1:0] $end
-$var reg 1 } cond_met $end
-$var integer 32 !" wb_rd_idx $end
-$var reg 32 "" alu_a[31:0] $end
-$var reg 32 #" alu_b[31:0] $end
-$var reg 1 $" priv_fault $end
-$var reg 1 %" ill_opcode $end
-$var reg 16 &" imm_word[15:0] $end
-$var reg 16 '" jmp_word[15:0] $end
-$upscope $end
-$scope module bus_0 $end
-$var reg 16 (" address[15:0] $end
-$var reg 16 )" data_in[15:0] $end
-$var reg 2 *" write_mask[1:0] $end
-$var reg 16 +" data_out[15:0] $end
-$var reg 1 ," bus_enable $end
-$var reg 1 -" write_enable $end
-$var reg 1 ." clk $end
-$var reg 1 /" raw_clk $end
-$var reg 1 0" ioport_0 $end
-$var reg 1 1" ioport_1 $end
-$var reg 1 2" ioport_2 $end
-$var reg 1 3" ioport_3 $end
-$var reg 1 4" button_0 $end
-$var reg 1 5" reset $end
-$var reg 1 6" spi_clk $end
-$var reg 1 7" spi_mosi $end
-$var reg 1 8" spi_miso $end
-$var reg 16 9" rom_data_out[15:0] $end
-$var reg 16 :" peripherals_data_out[15:0] $end
-$var reg 16 ;" ram_data_out_0[15:0] $end
-$var reg 16 <" ram_data_out_1[15:0] $end
-$var reg 1 =" rom_write_enable $end
-$var reg 1 >" ram_write_enable_0 $end
-$var reg 1 ?" peripherals_write_enable $end
-$var reg 1 @" ram_write_enable_1 $end
-$var reg 1 A" peripherals_enable $end
-$scope module rom_0 $end
-$var reg 1 B" clk $end
-$var reg 12 C" address[11:0] $end
-$var reg 16 D" data_in[15:0] $end
-$var reg 16 E" data_out[15:0] $end
-$var reg 2 F" write_mask[1:0] $end
-$var reg 1 G" write_enable $end
-$comment mem is not handled $end
-$var integer 32 H" addr_word $end
-$upscope $end
-$scope module peripherals_0 $end
-$var reg 1 I" clk $end
-$var reg 1 J" raw_clk $end
-$var reg 1 K" reset $end
-$var reg 1 L" enable $end
-$var reg 1 M" write_enable $end
-$var reg 8 N" address[7:0] $end
-$var reg 16 O" data_in[15:0] $end
-$var reg 16 P" data_out[15:0] $end
-$var reg 5 Q" btn[4:0] $end
-$var reg 16 R" sw[15:0] $end
-$var reg 16 S" led[15:0] $end
-$var reg 7 T" seg[6:0] $end
-$var reg 4 U" an[3:0] $end
-$var reg 1 V" ioport_0 $end
-$var reg 1 W" ioport_1 $end
-$var reg 1 X" ioport_2 $end
-$var reg 1 Y" ioport_3 $end
-$var reg 1 Z" button_0 $end
-$var reg 1 [" spi_clk $end
-$var reg 1 \" spi_mosi $end
-$var reg 1 ]" spi_miso $end
-$var reg 4 ^" ioport_reg[3:0] $end
-$var reg 1 _" spi_start $end
-$var reg 8 `" spi_data_tx[7:0] $end
-$var reg 8 a" spi_data_rx[7:0] $end
-$var reg 1 b" spi_busy $end
-$scope module spi_inst $end
-$var reg 1 c" raw_clk $end
-$var reg 1 d" start $end
-$var reg 8 e" data_tx[7:0] $end
-$var reg 8 f" data_rx[7:0] $end
-$var reg 1 g" busy $end
-$var reg 1 h" sclk $end
-$var reg 1 i" mosi $end
-$var reg 1 j" miso $end
-$comment state is not handled $end
-$var reg 8 k" rx_buffer[7:0] $end
-$var reg 8 l" tx_buffer[7:0] $end
-$var reg 5 m" count[4:0] $end
-$upscope $end
-$upscope $end
-$scope module ram_0 $end
-$var reg 1 n" clk $end
-$var reg 12 o" address[11:0] $end
-$var reg 16 p" data_in[15:0] $end
-$var reg 16 q" data_out[15:0] $end
-$var reg 2 r" write_mask[1:0] $end
-$var reg 1 s" write_enable $end
-$comment mem is not handled $end
-$var integer 32 t" addr $end
-$var reg 16 u" dout[15:0] $end
-$upscope $end
-$scope module ram_1 $end
-$var reg 1 v" clk $end
-$var reg 12 w" address[11:0] $end
-$var reg 16 x" data_in[15:0] $end
-$var reg 16 y" data_out[15:0] $end
-$var reg 2 z" write_mask[1:0] $end
-$var reg 1 {" write_enable $end
-$comment mem is not handled $end
-$var integer 32 |" addr $end
-$var reg 16 }" dout[15:0] $end
-$upscope $end
+$var reg 1 E flag_z $end
+$var reg 1 F flag_c $end
+$var reg 1 G flag_n $end
+$var reg 1 H flag_v $end
+$var reg 16 I fd_instr[15:0] $end
+$var reg 16 J fd_pc[15:0] $end
+$var reg 1 K fd_valid $end
+$var reg 32 L de_cw[31:0] $end
+$var reg 16 M de_instr[15:0] $end
+$var reg 16 N de_pc[15:0] $end
+$var reg 1 O de_valid $end
+$var reg 16 P de_rs_val[15:0] $end
+$var reg 16 Q de_rd_val[15:0] $end
+$var reg 3 R micro_step[2:0] $end
+$var integer 32 S int_pending_vec $end
+$var reg 1 T int_request $end
+$var reg 1 U int_entry $end
+$var reg 3 V int_step[2:0] $end
+$var integer 32 W int_latched_vec $end
+$var reg 16 X fetch_pc[15:0] $end
+$var reg 1 Y branch_taken $end
+$var reg 32 Z alu_result[31:0] $end
+$var reg 1 [ alu_carry $end
+$var reg 1 \ alu_zero $end
+$var reg 1 ] alu_neg $end
+$var reg 1 ^ alu_ovf $end
+$var reg 16 _ wb_data[15:0] $end
+$var reg 16 ` mem_addr[15:0] $end
+$var reg 16 a mem_wdata[15:0] $end
+$var reg 4 b cw_alu_op[3:0] $end
+$var reg 3 c cw_src_b[2:0] $end
+$var reg 1 d cw_reg_we $end
+$var reg 1 e cw_rd_from_inst $end
+$var reg 3 f cw_wb_src[2:0] $end
+$var reg 1 g cw_width_from_inst $end
+$var reg 2 h cw_width[1:0] $end
+$var reg 1 i cw_mem_rd $end
+$var reg 1 j cw_mem_wr $end
+$var reg 1 k cw_mem_width $end
+$var reg 2 l cw_mem_src[1:0] $end
+$var reg 3 m cw_pc_src[2:0] $end
+$var reg 4 n cw_branch_cond[3:0] $end
+$var reg 3 o cw_sp_op[2:0] $end
+$var reg 1 p cw_priv_check $end
+$var reg 1 q cw_last_step $end
+$var reg 2 r eff_width[1:0] $end
+$var reg 1 s eff_half_sel $end
+$var reg 6 t instr_opcode[5:0] $end
+$var reg 3 u instr_rd[2:0] $end
+$var reg 3 v instr_rs[2:0] $end
+$var reg 4 w instr_imm[3:0] $end
+$var reg 2 x instr_cond[1:0] $end
+$var reg 2 y instr_am[1:0] $end
+$var reg 1 z cond_met $end
+$var integer 32 { wb_rd_idx $end
+$var reg 32 | alu_a[31:0] $end
+$var reg 32 } alu_b[31:0] $end
+$var reg 1 !" priv_fault $end
+$var reg 1 "" ill_opcode $end
+$var reg 16 #" imm_word[15:0] $end
+$var reg 16 $" jmp_word[15:0] $end
 $upscope $end
 $upscope $end
 $enddefinitions $end
 #0
 U!
 U"
-U#
-U$
-U%
-U&
-U'
-b0000 (
+b0000000000000000 #
+b1111111 $
+b1110 %
+b0000000000000000 &
+bUUUUUUUUUUUUUUUU '
+b0000000000000000 (
 b0000000000000000 )
-bUUUUUUUUUUUUUUUU *
-b0000000000000000 +
-b0000000000000000 ,
-bUUUUUUUUUUUUUUUU -
-0.
-0/
-b00 0
-bUUUUUUUUUUUUUUUU 1
-bUUUUUUU 2
-bUUUU 3
-U4
-U5
+b0000000000000000 *
+0+
+0,
+b00 -
+b0000 .
+b000000000000000000 /
+bUUUU 0
+U1
+U2
+b0000000000000000 3
+bUUUUUUUUUUUUUUUU 4
+b0000000000000000 5
 b0000000000000000 6
-bUUUUUUUUUUUUUUUU 7
-b0000000000000000 8
-b0000000000000000 9
-bUUUUUUUUUUUUUUUU :
-0;
-0<
-b00 =
-b0000 >
+b0000000000000000 7
+08
+09
+b00 :
+b0000 ;
+b0000000000000000 <
+b1011111111111110 =
+b0000000000000000 >
 b0000000000000000 ?
-b1011111111111110 @
-b0000000000000000 A
-b0000000000000000 B
-1C
-0D
+1@
+0A
+0B
+b00000000 C
+b00000000 D
 0E
-b00000000 F
-b00000000 G
+0F
+0G
 0H
-0I
-0J
+b0000000000000000 I
+b0000000000000000 J
 0K
-b0000000000000000 L
+b11010000000000000100000000000001 L
 b0000000000000000 M
-0N
-b11010000000000000100000000000001 O
+b0000000000000000 N
+0O
 b0000000000000000 P
 b0000000000000000 Q
-0R
-b0000000000000000 S
-b0000000000000000 T
-b000 U
-b0 V
-0W
-0X
-b000 Y
-b0 Z
-b0000000000000000 [
-0\
-b00000000000000000000000000000000 ]
+b000 R
+b0 S
+0T
+0U
+b000 V
+b0 W
+b0000000000000000 X
+0Y
+b00000000000000000000000000000000 Z
+0[
+1\
+0]
 0^
-1_
-0`
-0a
-b0000000000000000 b
-b0000000000000000 c
-b0000000000000000 d
-b1101 e
+b0000000000000000 _
+b0000000000000000 `
+b0000000000000000 a
+b1101 b
+b000 c
+0d
+0e
 b000 f
 0g
-0h
-b000 i
+b00 h
+0i
 0j
-b00 k
-0l
-0m
-1n
-b00 o
-b000 p
-b0000 q
-b000 r
+1k
+b00 l
+b000 m
+b0000 n
+b000 o
+0p
+1q
+b00 r
 0s
-1t
-b00 u
-0v
-b000000 w
-b000 x
-b000 y
-b0000 z
-b00 {
-b00 |
-1}
-b0 !"
-b00000000000000000000000000000000 ""
-b00000000000000000000000000000000 #"
-0$"
-U%"
-b0000000000000000 &"
-b0000000000000000 '"
-b0000000000000000 ("
-b0000000000000000 )"
-b00 *"
-bUUUUUUUUUUUUUUUU +"
-0,"
-0-"
-U."
-U/"
-00"
-01"
-02"
-03"
-04"
-U5"
-U6"
-U7"
-U8"
-bUUUUUUUUUUUUUUUU 9"
-b0000000000000000 :"
-bUUUUUUUUUUUUUUUU ;"
-bUUUUUUUUUUUUUUUU <"
-0="
-0>"
-0?"
-0@"
-0A"
-UB"
-b000000000000 C"
-b0000000000000000 D"
-bUUUUUUUUUUUUUUUU E"
-b00 F"
-0G"
-b0 H"
-UI"
-UJ"
-UK"
-0L"
-0M"
-b00000000 N"
-b0000000000000000 O"
-b0000000000000000 P"
-b00000 Q"
-b0000000000000000 R"
-bUUUUUUUUUUUUUUUU S"
-bUUUUUUU T"
-bUUUU U"
-0V"
-0W"
-0X"
-0Y"
-0Z"
-U["
-U\"
-U]"
-b0000 ^"
-0_"
-bUUUUUUUU `"
-b00000000 a"
-0b"
-Uc"
-0d"
-bUUUUUUUU e"
-b00000000 f"
-0g"
-Uh"
-Ui"
-Uj"
-b00000000 k"
-b00000000 l"
-b00000 m"
-Un"
-b000000000000 o"
-b0000000000000000 p"
-bUUUUUUUUUUUUUUUU q"
-b00 r"
-0s"
-b0 t"
-bUUUUUUUUUUUUUUUU u"
-Uv"
-b000000000000 w"
-b0000000000000000 x"
-bUUUUUUUUUUUUUUUU y"
-b00 z"
-0{"
-b0 |"
-bUUUUUUUUUUUUUUUU }"
+b000000 t
+b000 u
+b000 v
+b0000 w
+b00 x
+b00 y
+1z
+b0 {
+b00000000000000000000000000000000 |
+b00000000000000000000000000000000 }
+0!"
+U""
+b0000000000000000 #"
+b0000000000000000 $"

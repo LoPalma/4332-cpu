@@ -3,22 +3,35 @@
 # SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
 # IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
 # SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
-# Start of session at: Tue Apr 21 21:52:20 2026
-# Process ID         : 70492
+# Start of session at: Wed Apr 22 21:48:35 2026
+# Process ID         : 194127
 # Current directory  : /home/palma/projects/fpga-cpu
-# Command line       : vivado -mode batch -source vivado_project.tcl
+# Command line       : vivado vivado_proj/4328_cpu.xpr
 # Log file           : /home/palma/projects/fpga-cpu/vivado.log
 # Journal file       : /home/palma/projects/fpga-cpu/vivado.jou
 # Running On         : thinkpad-t480
 # Platform           : openSUSE
 # Operating System   : openSUSE Tumbleweed
 # Processor Detail   : Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
-# CPU Frequency      : 3600.102 MHz
+# CPU Frequency      : 3600.106 MHz
 # CPU Physical cores : 4
 # CPU Logical cores  : 8
 # Host memory        : 16497 MB
 # Swap memory        : 2147 MB
 # Total Virtual      : 18645 MB
-# Available Virtual  : 11680 MB
+# Available Virtual  : 12469 MB
 #-----------------------------------------------------------
-source vivado_project.tcl
+start_gui
+open_project vivado_proj/4328_cpu.xpr
+update_compile_order -fileset sources_1
+open_run synth_1 -name synth_1
+launch_runs impl_1 -jobs 4
+wait_on_run impl_1
+close_design
+open_run impl_1
+close_design
+open_run synth_1 -name synth_1
+open_run impl_1
+report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -routable_nets -name timing_1
+report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -routable_nets -name timing_1
+report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -routable_nets -name timing_1

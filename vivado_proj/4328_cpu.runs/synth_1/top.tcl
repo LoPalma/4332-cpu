@@ -72,11 +72,6 @@ OPTRACE "Creating in-memory project" END { }
 OPTRACE "Adding files" START { }
 read_vhdl -vhdl2008 -library xil_defaultlib {
   /home/palma/projects/fpga-cpu/cpu.vhd
-  /home/palma/projects/fpga-cpu/memory.vhd
-  /home/palma/projects/fpga-cpu/spi.vhd
-  /home/palma/projects/fpga-cpu/peripherals.vhd
-  /home/palma/projects/fpga-cpu/ram.vhd
-  /home/palma/projects/fpga-cpu/memory_bus.vhd
   /home/palma/projects/fpga-cpu/top.vhd
 }
 OPTRACE "Adding files" END { }
@@ -88,8 +83,8 @@ OPTRACE "Adding files" END { }
 foreach dcp [get_files -quiet -all -filter file_type=="Design\ Checkpoint"] {
   set_property used_in_implementation false $dcp
 }
-read_xdc /home/palma/projects/fpga-cpu/top_constraints.xdc
-set_property used_in_implementation false [get_files /home/palma/projects/fpga-cpu/top_constraints.xdc]
+read_xdc /home/palma/projects/fpga-cpu/basys3.xdc
+set_property used_in_implementation false [get_files /home/palma/projects/fpga-cpu/basys3.xdc]
 
 set_param ips.enableIPCacheLiteLoad 1
 close [open __synthesis_is_running__ w]
