@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use std.textio.all;
 
 entity top is
     port (
@@ -27,12 +28,25 @@ architecture rtl of top is
 
     -- ROM definition (Filled with NOPs, except a simple jump loop)
     type rom_t is array(0 to 2047) of std_logic_vector(15 downto 0);
-    constant FIRMWARE : rom_t := (
-        0      => x"0000",   -- NOP
-        1      => x"6000",   -- JMP 0 (Assuming 0x6000 is your JMP opcode)
-        others => x"0000"
-    );
 
+    impure function load_rom(filename : string) return rom_t is
+        file f       : text open read_mode is filename;
+        variable l   : line;
+        variable bv  : bit_vector(15 downto 0);
+        variable rom : rom_t := (others => (others => '0'));
+        variable i   : integer := 0;
+    begin
+        while not endfile(f) and i < 2048 loop
+            readline(f, l);
+            read(l, bv);  -- read the 16 0/1 characters
+            rom(i) := to_stdlogicvector(bv); -- bit vector -> logic vector
+            i := i + 1;
+        end loop;
+        return rom;
+    end function;
+    
+    signal FIRMWARE : rom_t := load_rom("./tools/firmware.textio");
+    
     -- 7-Segment Multiplexing signals
     signal clk_div : unsigned(17 downto 0) := (others => '0');
     signal hex_val : std_logic_vector(3 downto 0);
