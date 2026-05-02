@@ -63,6 +63,7 @@ use ieee.numeric_std.all;
 entity cpu is
     port (
         clk      : in  std_logic;
+        clk_en   : in  std_logic;   -- clock enable: CPU only advances when '1'
         reset    : in  std_logic;
 
         -- Instruction bus (async ROM — combinational read)
@@ -1200,7 +1201,8 @@ begin
         variable fd_rd_idx : integer range 0 to 7;       
     begin
         if rising_edge(clk) then
-            if reset = '1' then
+            if clk_en = '1' then
+               if reset = '1' then
                 -- Reset state
                 rpc            <= x"0000";
                 rsp            <= x"BFFE";
@@ -1541,8 +1543,9 @@ begin
                         rpc <= std_logic_vector(unsigned(rpc) + 1);
                     end if;
                 end if;
-            end if;
-        end if; -- rising_edge
+                end if; -- clk_en
+            end if; -- rising_edge
+        end if;
     end process;
 
-end architecture;
+    end architecture;

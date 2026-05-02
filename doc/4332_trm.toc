@@ -1,0 +1,88 @@
+\contentsline {chapter}{\numberline {1}Introduction}{4}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Overview}{4}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Main Features}{4}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Limitations}{5}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Implementation Estimates}{5}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Structure of This Manual}{6}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Instruction Set Architecture}{7}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Data Formats}{7}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Instruction Word Format}{7}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Conditional Execution (\texttt {\small CE})}{8}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Data Width / Addressing Mode (\texttt {\small DW / AM})}{8}{subsection.2.2.2}%
+\contentsline {paragraph}{Data instructions (width field, \texttt {\small DW}).}{8}{subsection.2.2.2}%
+\contentsline {paragraph}{Control-flow instructions (addressing mode, \texttt {\small AM}).}{8}{table.2.2}%
+\contentsline {section}{\numberline {2.3}Instruction Classes}{8}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}A-type: Arithmetic and Data Instructions}{8}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}F-type: Control Flow Instructions}{9}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}S-type: System Instructions}{9}{subsection.2.3.3}%
+\contentsline {section}{\numberline {2.4}Registers}{9}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}General-Purpose Registers}{9}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Special Registers}{10}{subsection.2.4.2}%
+\contentsline {subsection}{\numberline {2.4.3}Condition Flags}{10}{subsection.2.4.3}%
+\contentsline {section}{\numberline {2.5}Extended Register Pairs}{10}{section.2.5}%
+\contentsline {section}{\numberline {2.6}Addressing}{11}{section.2.6}%
+\contentsline {section}{\numberline {2.7}Stack}{11}{section.2.7}%
+\contentsline {section}{\numberline {2.8}Calling Subroutines}{12}{section.2.8}%
+\contentsline {chapter}{\numberline {3}Interrupt and Exception System}{13}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Overview}{13}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Interrupt Vectors and Priority}{13}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Interrupt Controller Register (RIC)}{13}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Interrupt Vector Table (RIV)}{14}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Hardware Interrupt Entry Sequence}{14}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Returning from Interrupts (IRET)}{14}{section.3.6}%
+\contentsline {section}{\numberline {3.7}Software Interrupts}{15}{section.3.7}%
+\contentsline {section}{\numberline {3.8}Privilege Faults}{16}{section.3.8}%
+\contentsline {section}{\numberline {3.9}Illegal Opcode Faults}{16}{section.3.9}%
+\contentsline {chapter}{\numberline {4}Memory Organisation}{17}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Address Space}{17}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Instruction Bus}{17}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Data Bus}{17}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Memory-Mapped Peripherals}{18}{section.4.4}%
+\contentsline {chapter}{\numberline {5}Hardware Architecture}{19}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Pipeline Overview}{19}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Micro-Sequencer}{19}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Hazard Handling}{19}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}RAW Hazards}{19}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Branch Hazards}{20}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Interrupt Hazards}{20}{subsection.5.3.3}%
+\contentsline {section}{\numberline {5.4}LOADIMM and 2-Word Instructions}{20}{section.5.4}%
+\contentsline {section}{\numberline {5.5}PC Management}{20}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Control Word ROM}{21}{section.5.6}%
+\contentsline {chapter}{\numberline {6}Integration and Synthesis}{22}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Top-Level Ports}{22}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Clock and Reset}{22}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Connecting to the Memory Bus}{23}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Interrupt Wiring}{23}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Synthesis Guidelines}{23}{section.6.5}%
+\contentsline {subsection}{\numberline {6.5.1}BRAM Inference}{23}{subsection.6.5.1}%
+\contentsline {subsection}{\numberline {6.5.2}Timing}{23}{subsection.6.5.2}%
+\contentsline {subsection}{\numberline {6.5.3}Optimising for Area}{24}{subsection.6.5.3}%
+\contentsline {chapter}{\numberline {7}Simulation}{25}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Testbench Overview}{25}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Test Suites}{25}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Build System}{25}{section.7.3}%
+\contentsline {subsection}{\numberline {7.3.1}Running Simulation}{26}{subsection.7.3.1}%
+\contentsline {subsection}{\numberline {7.3.2}Synthesis}{26}{subsection.7.3.2}%
+\contentsline {section}{\numberline {7.4}Requirements}{26}{section.7.4}%
+\contentsline {chapter}{\numberline {8}Assembler}{27}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Overview}{27}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Usage}{27}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Register Syntax}{27}{section.8.3}%
+\contentsline {section}{\numberline {8.4}Mnemonics and Suffixes}{27}{section.8.4}%
+\contentsline {section}{\numberline {8.5}Addressing Modes for J and CALL}{28}{section.8.5}%
+\contentsline {section}{\numberline {8.6}LOADIMM}{28}{section.8.6}%
+\contentsline {section}{\numberline {8.7}Directives}{28}{section.8.7}%
+\contentsline {section}{\numberline {8.8}Labels}{28}{section.8.8}%
+\contentsline {section}{\numberline {8.9}Number Literals}{29}{section.8.9}%
+\contentsline {section}{\numberline {8.10}Comments}{29}{section.8.10}%
+\contentsline {chapter}{\numberline {A}Instruction Set Reference}{30}{appendix.A}%
+\contentsline {section}{\numberline {A.1}Instruction Listing by Group}{30}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Instruction Descriptions}{31}{section.A.2}%
+\contentsline {chapter}{\numberline {B}Assembler Language Reference}{34}{appendix.B}%
+\contentsline {section}{\numberline {B.1}Source File Format}{34}{section.B.1}%
+\contentsline {section}{\numberline {B.2}Comments}{34}{section.B.2}%
+\contentsline {section}{\numberline {B.3}Labels}{34}{section.B.3}%
+\contentsline {section}{\numberline {B.4}Number Literals}{35}{section.B.4}%
+\contentsline {section}{\numberline {B.5}String Escape Sequences}{35}{section.B.5}%
+\contentsline {chapter}{\numberline {C}Control Word Layout}{36}{appendix.C}%
+\contentsline {chapter}{\numberline {D}Register File}{40}{appendix.D}%

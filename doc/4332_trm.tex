@@ -1,0 +1,1419 @@
+\documentclass[a4paper,12pt]{report}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{makeidx}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{multirow}
+\usepackage{amsmath}
+
+\geometry{margin=1in}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black
+}
+
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\definecolor{commentcolor}{rgb}{0.3,0.5,0.3}
+\definecolor{keywordcolor}{rgb}{0.1,0.1,0.7}
+
+\lstdefinelanguage{4332asm}{
+    morecomment=[l]{;},
+    morecomment=[l]{\#},
+    morekeywords={add,sub,and,or,xor,not,shl,shr,inc,dec,cmp,mov,loadimm,passa,passb,nop,
+                  ld,st,ldb,stb,push,pop,peek,flush,j,call,ret,iret,int,hlt,
+                  enirq,disirq,setmode,getmode,writeric,readric,readriv,writeriv,halt,
+                  ADD,SUB,AND,OR,XOR,NOT,SHL,SHR,INC,DEC,CMP,MOV,LOADIMM,PASSA,PASSB,NOP,
+                  LD,ST,LDB,STB,PUSH,POP,PEEK,FLUSH,J,CALL,RET,IRET,INT,HLT,
+                  ENIRQ,DISIRQ,SETMODE,GETMODE,WRITERIC,READRIC,READRIV,WRITERIV,HALT},
+    sensitive=false,
+    commentstyle=\color{commentcolor}\itshape,
+    keywordstyle=\color{keywordcolor}\bfseries,
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    framesep=4pt,
+    xleftmargin=8pt,
+    xrightmargin=8pt,
+}
+
+\lstset{language=4332asm}
+
+\newcommand{\asm}[1]{\texttt{#1}}
+\newcommand{\field}[1]{\texttt{\small #1}}
+\newcommand{\reg}[1]{\texttt{\%#1}}
+\newcommand{\signal}[1]{\texttt{#1}}
+\newcommand{\instr}[1]{\texttt{\textbf{#1}}}
+
+\makeindex
+
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{4332 CPU Technical Reference Manual}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\title{
+    {\Huge\bfseries 4332 CPU} \\[1em]
+    {\Large Technical Reference Manual} \\[2em]
+    {\large Leonardo Palma} \\[0.5em]
+    {\large Version 1.0}
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\chapter{Introduction}
+% =============================================================================
+
+\section{Overview}
+
+The 4332 is a 16-bit microcoded CPU designed for FPGA implementation on the Xilinx Artix-7 (Basys~3 development board). The name encodes its key parameters: $2^4 = 16$-bit data width, $2^3 = 8$ general-purpose registers, and a 32-bit control word --- hence \emph{4332}.
+
+At its core the 4332 is a NISC (\emph{No Instruction Set Computer}). Every opcode is decoded into a 32-bit control word (CW), looked up from a 512-entry ROM indexed by \field{\{opcode[5:0], step[2:0]\}}. This means adding a new instruction is as simple as writing a new CW entry: no changes to the datapath, no changes to the decode logic. The same property makes the 4332 unusually hackable --- it is, in principle, possible to make it decode a completely different ISA by replacing the CW ROM.
+
+Despite its simplicity the 4332 does not compromise on system features. It has a proper privilege architecture, a vectored interrupt controller with 8 vectors, and a 3-stage pipeline --- all in a footprint of under 570 LUTs on an Artix-7.
+
+\section{Main Features}
+
+\begin{itemize}
+    \item \textbf{Microcoded NISC decode.}
+          Every instruction maps to a 32-bit control word looked up from a 512-entry BRAM-inferred ROM. The CW directly drives every datapath signal. Adding a new opcode is a matter of writing a new entry in the ROM initialisation function; no RTL changes are required.
+
+    \item \textbf{3-stage pipeline.}
+          FETCH, DECODE, and EXECUTE stages. RAW hazards are resolved by a one-cycle stall with bubble injection. Branches flush the pipeline on taken, producing a single-cycle penalty bubble. There is deliberately no branch predictor --- the pipeline is short enough that prediction overhead outweighs any potential gain.
+
+    \item \textbf{Privilege architecture.}
+          Hardware user/kernel mode separation. Any attempt to execute a privileged instruction from user mode raises a \emph{privilege fault} (vector~6), which the interrupt controller services before the offending instruction can have any effect on architectural state.
+
+    \item \textbf{Vectored interrupt system.}
+          8 interrupt vectors with fixed priority (NMI $>$ PRIV\_FAULT $>$ ILL\_OPCODE $>$ SOFT\_INT $>$ IRQ3--IRQ0). The hardware entry sequence automatically saves the PC, privilege mode, faulting instruction, and faulting memory address into dedicated exception registers (\asm{XR0}--\asm{XR3}) --- no software prologue is required to diagnose a fault.
+
+    \item \textbf{Suffix-based conditionality.}
+          Any instruction can be made conditional by appending a condition suffix (\asm{.z}, \asm{.c}, or \asm{.n}). When the condition is not met, the instruction executes as a NOP: no writeback, no memory access, no PC redirect, no side effects --- but the micro-sequencer still runs to completion so that multi-word instructions drain the pipeline correctly.
+
+    \item \textbf{Variable-width ALU.}
+          The \field{DW} field in the instruction word selects 16-bit, 8-bit low, 8-bit high, or 32-bit (extended register pair) operations for ALU instructions. The same hardware handles all four widths.
+
+    \item \textbf{Customisable decode ROM.}
+          Because every instruction is just a CW entry, extending the ISA requires no datapath modification. The \asm{make\_cw} helper function with named parameters keeps opcode definitions readable and maintainable.
+
+    \item \textbf{Small footprint.}
+          Under 1100 LUTs and approximately 520 flip-flops on an Artix-7, occupying about 5\% of the LUT budget of a Basys~3 board. Plenty of headroom for a full SoC around the CPU.
+\end{itemize}
+
+\section{Limitations}
+
+The 4332 has a 16-bit address space, giving a maximum of 65,536 addressable word locations (byte addressing, so 32,768 word-aligned words). There is no memory management unit, no virtual memory, and no 32-bit memory addressing. The \asm{.d} (double-word) width suffix is meaningful only for register-to-register ALU operations on extended register pairs (Section~\ref{sec:extended-regs}); it is not supported for memory access instructions. The data bus is 16 bits wide; 32-bit memory transfers must be implemented as two consecutive 16-bit loads or stores.
+
+Interrupt nesting is not implemented by design. Once the interrupt controller begins servicing a vector, GIE is cleared and further interrupts are deferred until \asm{IRET} re-enables them. This simplifies debugging and interrupt handler code significantly.
+
+The CPU currently boots into kernel mode and does not have a formal mechanism for transitioning to user mode other than \asm{SETMODE}.
+
+\section{Implementation Estimates}
+
+Typical synthesis results for the 4332 CPU on the Artix-7 (Basys~3 board) are shown in Table~\ref{tab:implementation}. These figures are approximate and depend on tool version, constraint setup, and design utilization.
+
+\begin{table}[htbp]
+\centering
+\caption{4332 CPU resource footprint (Artix-7 XC7A35T)}
+\label{tab:implementation}
+\begin{tabularx}{\textwidth}{lX}
+    \toprule
+    \textbf{Resource} & \textbf{Estimate} \\
+    \midrule
+    LUTs         & $1061$ ($5.25\%$ of XC7A35T) \\
+    Flip-flops   & $524$ ($1.26\%$) \\
+    BRAM         & 1 \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Structure of This Manual}
+
+A general description of the 4332 architecture from a software developer's point of view is found in Chapter~\ref{ch:isa}, \emph{Instruction Set Architecture}. Pipeline and hazard handling from a hardware perspective is covered in Chapter~\ref{ch:pipeline}, \emph{Hardware Architecture}. Chapter~\ref{ch:interrupts}, \emph{Interrupt and Exception System}, documents the interrupt controller, vector table, and entry/return sequences in detail. Memory organisation and the bus interface are described in Chapter~\ref{ch:memory}, \emph{Memory Organisation}. Integration with the rest of a Basys~3 SoC design --- ports, synthesis, and timing --- is the subject of Chapter~\ref{ch:integration}, \emph{Integration and Synthesis}. Chapter~\ref{ch:simulation}, \emph{Simulation}, covers the testbench and build system.
+
+Appendices contain the full instruction set reference (Appendix~\ref{app:instructionset}), assembler syntax (Appendix~\ref{app:assemblylanguage}), control word layout (Appendix~\ref{app:cwlayout}), and the register file (Appendix~\ref{app:registers}).
+
+% =============================================================================
+\chapter{Instruction Set Architecture}
+\label{ch:isa}
+% =============================================================================
+
+\section{Data Formats}
+
+The 4332 is a 16-bit CPU. All general-purpose registers hold 16-bit values. Signed values are encoded in two's complement. The ALU sign-extends 8-bit results to 16 bits when writing back through the W8 path. Memory is byte-addressed; word accesses are always to even addresses (the least significant bit of the address is forced to zero by hardware).
+
+Extended register operations (\asm{.d}) treat pairs of adjacent registers as a single 32-bit value, with the even-numbered register holding the low word and the odd-numbered register holding the high word.
+
+\section{Instruction Word Format}
+\label{sec:encoding}
+
+Every 4332 instruction occupies exactly one 16-bit word in the instruction stream, with the exception of \asm{LOADIMM} and 2-word addressing modes for \asm{J}/\asm{CALL}, which are followed by a 16-bit extension word. The base instruction word is laid out as follows:
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{|p{2.2cm}|p{1.5cm}|p{1.5cm}|p{2cm}|p{2cm}|}
+    \hline
+    \textbf{[15:10]} & \textbf{[9:7]} & \textbf{[6:4]} & \textbf{[3:2]} & \textbf{[1:0]} \\
+    \hline
+    OPCODE (6 bits) & RD (3 bits) & RS (3 bits) & DW / AM (2 bits) & CE (2 bits) \\
+    \hline
+\end{tabular}
+\end{center}
+\vspace{0.5em}
+
+\begin{description}
+    \item[\field{OPCODE [15:10]}]
+        6-bit instruction opcode. Selects the CW ROM entry together with the 3-bit micro-step counter. See Appendix~\ref{app:instructionset} for the full opcode table.
+
+    \item[\field{RD [9:7]}]
+        Destination register selector. Indexes into \reg{0}--\reg{7}. For instructions that only have a source operand this field is ignored by the datapath (though it is still encoded as zero by the assembler).
+
+    \item[\field{RS [6:4]}]
+        Source register selector. Indexes into \reg{0}--\reg{7}. Also used as the vector index for \asm{READRIV}/\asm{WRITERIV}, and as the indirect jump target register for \asm{J}/\asm{CALL}.
+
+    \item[\field{DW / AM [3:2]}]
+        Dual-purpose field. Its interpretation depends on the instruction class (see Section~\ref{sec:dw-am}). For arithmetic and memory instructions it is the data width field (\field{DW}); for control-flow instructions it is the addressing mode field (\field{AM}).
+
+    \item[\field{CE [1:0]}]
+        Conditional execution field. Applies to every instruction class. When the condition is not met the instruction executes as a NOP: no writeback, no memory access, no PC redirect, no side effects. The micro-sequencer still runs to completion so that multi-word instructions drain the pipeline correctly and the instruction stream pointer is left in the correct state.
+\end{description}
+
+\subsection{Conditional Execution (\field{CE})}
+\label{sec:cond}
+
+\begin{table}[htbp]
+\centering
+\caption{Conditional execution field encoding}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{CE[1:0]} & \textbf{Suffix} & \textbf{Condition} \\
+    \midrule
+    \texttt{00} & (none) & Always --- unconditional execution \\
+    \texttt{01} & \asm{.z} & Execute if Zero flag is set (Z=1) \\
+    \texttt{10} & \asm{.c} & Execute if Carry flag is set (C=1) \\
+    \texttt{11} & \asm{.n} & Execute if Negative flag is set (N=1) \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+Any instruction can carry a condition suffix. For example, \asm{add.z \%1, \%2} adds \reg{2} into \reg{1} (via \reg{0}) only if the Zero flag is set; \asm{j.c loop} jumps only if Carry is set. There is no dedicated conditional-branch opcode family.
+
+\subsection{Data Width / Addressing Mode (\field{DW / AM})}
+\label{sec:dw-am}
+
+Bits \field{[3:2]} serve two distinct roles depending on the instruction class.
+
+\paragraph{Data instructions (width field, \field{DW}).}
+For arithmetic, logic, and memory instructions the \field{DW} field selects the width of the operation. This is only used by the datapath when the CW has \field{WIDTH\_FROM\_INST} set. Otherwise the CW supplies the width directly, which is how fixed-width system instructions like \asm{LOADIMM} work.
+
+\begin{table}[htbp]
+\centering
+\caption{Data width field encoding}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{DW[1:0]} & \textbf{Suffix} & \textbf{Meaning} \\
+    \midrule
+    \texttt{00} & \asm{.w} & 16-bit word operation (default; suffix is optional) \\
+    \texttt{01} & \asm{.l} & 8-bit low byte (bits~7:0 of the register) \\
+    \texttt{10} & \asm{.h} & 8-bit high byte (bits~15:8 of the register) \\
+    \texttt{11} & \asm{.d} & 32-bit double-word via extended register pair \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Control-flow instructions (addressing mode, \field{AM}).}
+For \asm{J} and \asm{CALL}, the same two bits encode the addressing mode. The mode is chosen automatically by the assembler based on operand form; no explicit suffix is needed.
+
+\begin{table}[htbp]
+\centering
+\caption{Addressing mode field encoding (J / CALL)}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{AM[1:0]} & \textbf{Assembler form} & \textbf{Description} \\
+    \midrule
+    \texttt{00} & \asm{j label}         & Direct: absolute target in extension word (2-word instruction) \\
+    \texttt{01} & \asm{j \%rs}          & Indirect: target is \reg{RS} (1-word instruction) \\
+    \texttt{10} & \asm{j \%rs, offset}  & Indirect+offset: target is \reg{RS} + extension word (2-word) \\
+    \texttt{11} & ---                   & Illegal addressing mode --- triggers illegal-opcode fault (vector~5) \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Instruction Classes}
+\label{sec:classes}
+
+\subsection{A-type: Arithmetic and Data Instructions}
+
+A-type instructions are the workhorse class. They cover all ALU operations, memory access, and stack operations. Bits~\field{[3:2]} are the \field{DW} (data width) field.
+
+Most A-type instructions are one word. \asm{LOADIMM} is the exception: it is always two words, consuming the following instruction word as a 16-bit immediate. The \field{DW} and \field{CE} fields in the \asm{LOADIMM} opcode word are both ignored; the \field{RD} field selects the destination register.
+
+\subsection{F-type: Control Flow Instructions}
+
+F-type instructions include \asm{J}, \asm{CALL}, \asm{RET}, and \asm{IRET}. Bits~\field{[3:2]} are the \field{AM} (addressing mode) field. Bits~\field{[1:0]} remain the \field{CE} conditional execution field.
+
+Direct and indirect-with-offset modes produce a two-word instruction; indirect mode produces a one-word instruction. Examples:
+
+\begin{lstlisting}
+  j     loop       ; Direct: 2 words, absolute target
+  j     %3         ; Indirect: 1 word, target = %3
+  j     %3, 0x10   ; Indirect+offset: 2 words, target = %3 + 0x10
+  j.z   done       ; Conditional direct jump: taken only if Z=1
+  j.c   %2         ; Conditional indirect: taken only if C=1
+\end{lstlisting}
+
+\subsection{S-type: System Instructions}
+
+System instructions (opcodes 0x30--0x39) require kernel mode to execute. Attempting any system instruction from user mode raises a privilege fault before the instruction has any effect. These instructions manipulate the interrupt controller (\asm{ENIRQ}, \asm{DISIRQ}, \asm{WRITERIC}), read/write interrupt vectors (\asm{READRIV}, \asm{WRITERIV}), and query or change privilege mode (\asm{GETMODE}, \asm{SETMODE}).
+
+\section{Registers}
+\label{sec:registers}
+
+\subsection{General-Purpose Registers}
+
+The 4332 has eight 16-bit general-purpose registers, denoted \reg{0}--\reg{7}. All registers are zero-initialised on reset. From the hardware's perspective they are all symmetric: any register can be used for any purpose.
+
+By convention \reg{0} is the implicit accumulator for most ALU instructions (instructions that do not set \field{RD\_FROM\_INST} always write back to \reg{0}). The assembler enforces even register numbers for \asm{.d} (double-word) operations, since the upper half of a 32-bit result is written to \reg{RD+1}.
+
+\subsection{Special Registers}
+
+Special registers are not directly addressable by general ALU instructions. They are accessed via dedicated system instructions or implicitly by hardware during pipeline events.
+
+\begin{table}[htbp]
+\centering
+\caption{4332 special-purpose registers}
+\label{tab:spr}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Register} & \textbf{Reset Value} & \textbf{Description} \\
+    \midrule
+    \asm{RSP} & \texttt{0xBFFE} & Stack pointer. Initialised to the top of RAM bank 0. \\
+    \asm{RPC} & \texttt{0x0000} & Program counter. \\
+    \asm{RIP} & \texttt{0x0000} & Saved PC captured on interrupt entry (restored by \asm{IRET}). \\
+    \asm{XR0} & \texttt{0x0000} & Faulting PC (address of the instruction that caused the fault). \\
+    \asm{XR1} & \texttt{0x0000} & Faulting vector number (0--7). \\
+    \asm{XR2} & \texttt{0x0000} & Faulting instruction word. \\
+    \asm{XR3} & \texttt{0x0000} & Faulting memory address. \\
+    \asm{RM}  & \texttt{0x0001} & Mode register. Bit 0 = current mode (1=kernel, 0=user). Bit 1 = previous mode. \\
+    \asm{RIC} & \texttt{0x0000} & Interrupt controller register (GIE, enable mask, pending). \\
+    \asm{RIV[0..7]} & \texttt{0x0000} & Interrupt vector table. 8 entries, one per vector. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Condition Flags}
+
+The 4332 has four condition flags updated by ALU operations:
+
+\begin{table}[htbp]
+\centering
+\caption{Condition flags}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Flag} & \textbf{Name} & \textbf{Set when...} \\
+    \midrule
+    Z & Zero     & The result of the operation is zero (within the active width). \\
+    C & Carry    & An unsigned carry or borrow occurred. For shifts, this captures the shifted-out bit. \\
+    N & Negative & The most significant bit of the result is 1 (within the active width). \\
+    V & Overflow & Signed overflow occurred (add/subtract only). \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+The \asm{PASSA} and \asm{PASSB} ALU operations do not update flags. All other ALU operations (including \asm{CMP}, which performs subtraction without writeback) do update all four flags. The width used for flag evaluation matches the effective width of the instruction (\field{eff\_width}).
+
+\section{Extended Register Pairs}
+\label{sec:extended-regs}
+
+The eight general-purpose registers may be paired into four 32-bit \emph{extended registers} (ER):
+
+\begin{table}[htbp]
+\centering
+\caption{Extended register pairs}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{ER} & \textbf{Registers} & \textbf{Layout} \\
+    \midrule
+    ER0 & \reg{0}, \reg{1} & \reg{0} = low word, \reg{1} = high word \\
+    ER1 & \reg{2}, \reg{3} & \reg{2} = low word, \reg{3} = high word \\
+    ER2 & \reg{4}, \reg{5} & \reg{4} = low word, \reg{5} = high word \\
+    ER3 & \reg{6}, \reg{7} & \reg{6} = low word, \reg{7} = high word \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+When the \asm{.d} suffix is used on an ALU instruction, the result is written as a 32-bit value: the low 16 bits go to \asm{RD} and the high 16 bits go to \asm{RD+1}. The destination register should always be even when using \asm{.d}; the assembler does not currently enforce this, but the hardware will silently produce incorrect results for odd-register destinations.
+
+Loading a 32-bit immediate requires two \asm{LOADIMM} instructions:
+
+\begin{lstlisting}
+  loadimm %0, 0xBEEF   ; low word  -> %0
+  loadimm %1, 0xDEAD   ; high word -> %1
+  ; ER0 now holds 0xDEADBEEF
+\end{lstlisting}
+
+\section{Addressing}
+\label{sec:addressing}
+
+The 4332 has a 16-bit address space. Addresses are byte addresses; word-aligned accesses use even addresses (the low bit is ignored for word reads/writes). The address space is divided into four 16~KB banks:
+
+\begin{table}[htbp]
+\centering
+\caption{Address space layout}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Range} & \textbf{Size} & \textbf{Region} \\
+    \midrule
+    \texttt{0x0000}--\texttt{0x3FFF} & 16 KB & ROM (writable after startup via memory bus) \\
+    \texttt{0x4000}--\texttt{0x7FFF} & 16 KB & Peripherals \\
+    \texttt{0x8000}--\texttt{0xBFFF} & 16 KB & RAM bank 0 (stack default here) \\
+    \texttt{0xC000}--\texttt{0xFFFF} & 16 KB & RAM bank 1 \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+All memory addressing in ALU instructions is indirect: the memory address must be in a register (\reg{RS} for loads, \reg{RD} for stores). There is no instruction that directly encodes a memory address in the instruction word; to access an arbitrary address, load it into a register with \asm{LOADIMM} first.
+
+\section{Stack}
+\label{sec:stack}
+
+The stack pointer is stored in the special register \asm{RSP}. On reset it is initialised to \texttt{0xBFFE}, which is the top of RAM bank~0. The stack grows downward. Push decrements \asm{RSP} before writing; pop reads at the current \asm{RSP} before incrementing.
+
+The hardware \asm{PUSH} and \asm{POP} instructions operate implicitly on \asm{RSP}. There is no way to use a general register as an alternative stack pointer through these instructions; if an alternate stack is needed it must be implemented manually with \asm{LD}/\asm{ST} and arithmetic.
+
+\begin{lstlisting}
+  ; Manual push of %2 to an alternate stack in %5
+  dec   %5          ; RSP-- equivalent
+  st    %5, %2      ; mem[%5] <- %2
+
+  ; Manual pop from alternate stack
+  ld    %2, %5      ; %2 <- mem[%5]
+  inc   %5          ; RSP++ equivalent
+\end{lstlisting}
+
+Before using the stack in any interrupt handler or subroutine, the \asm{RSP} register must already point to valid RAM. Since \asm{RSP} resets to the top of RAM bank~0, simple programs can use the stack immediately after reset without any initialisation.
+
+\section{Calling Subroutines}
+\label{sec:callingsubroutines}
+
+Subroutine calls are implemented by the \asm{CALL} instruction, which pushes the return address onto the hardware stack (via \asm{RSP}) and then jumps to the target. It supports the same three addressing modes as \asm{J}:
+
+\begin{lstlisting}
+  call  proc_addr     ; Direct: push ret addr, jump to immediate target
+  call  %3            ; Indirect: push ret addr, jump to %3
+  call  %3, 0x10      ; Indirect+offset: push ret addr, jump to %3+0x10
+\end{lstlisting}
+
+The return address pushed onto the stack is the address of the word immediately following the \asm{CALL} instruction (or its extension word, for 2-word forms). Returning from a subroutine is done with \asm{RET}:
+
+\begin{lstlisting}
+  ret                 ; RPC <- pop()
+\end{lstlisting}
+
+For nested calls, the caller's return address is naturally preserved on the stack, so no special save/restore is needed in the calling convention. The stack discipline handles arbitrary call depth as long as sufficient stack space is available.
+
+A typical calling convention for 4332 programs is: pass arguments in \reg{1}--\reg{6}, with \reg{0} used as the scratch/accumulator register for results. The callee is responsible for preserving any registers it uses that the caller might depend on (callee-saved convention). Since the ISA has only 8 registers, tight code may choose to pass arguments on the stack for functions with many parameters.
+
+% =============================================================================
+\chapter{Interrupt and Exception System}
+\label{ch:interrupts}
+% =============================================================================
+
+\section{Overview}
+
+The 4332 interrupt system has 8 vectors with fixed priority. There are two categories: \emph{synchronous exceptions}, which are generated by the CPU itself in response to instruction execution, and \emph{asynchronous interrupts}, which arrive from external logic or software.
+
+Interrupt nesting is not supported. When interrupt entry begins, GIE is cleared immediately, deferring any further interrupts until \asm{IRET} is executed.
+
+\section{Interrupt Vectors and Priority}
+
+\begin{table}[htbp]
+\centering
+\caption{Interrupt vector table}
+\label{tab:vectors}
+\begin{tabularx}{\textwidth}{llllX}
+    \toprule
+    \textbf{Vector} & \textbf{Priority} & \textbf{Type} & \textbf{Name} & \textbf{Source} \\
+    \midrule
+    0 & 4 (lowest)  & Async & IRQ0       & External hardware interrupt line 0 \\
+    1 & 3           & Async & IRQ1       & External hardware interrupt line 1 \\
+    2 & 2           & Async & IRQ2       & External hardware interrupt line 2 \\
+    3 & 1           & Async & IRQ3       & External hardware interrupt line 3 \\
+    4 & 0           & Sync  & SOFT\_INT  & Software interrupt (\asm{INT} instruction) \\
+    5 & ---         & Sync  & ILL\_OPCODE & Illegal opcode detected in DECODE stage \\
+    6 & ---         & Sync  & PRIV\_FAULT & Privileged instruction in user mode \\
+    7 & 7 (highest) & Async & NMI        & Non-maskable interrupt \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+Synchronous exceptions (vectors 5 and 6) beat asynchronous IRQs. Within the async group, NMI (vector~7) always fires regardless of GIE. Among the maskable hardware IRQs (0--3), vector~0 has the highest priority and vector~3 the lowest.
+
+\section{Interrupt Controller Register (RIC)}
+\label{sec:ric}
+
+The interrupt controller state is accessible via the \asm{RIC} register, read with \asm{READRIC} and written with \asm{WRITERIC}. The layout is:
+
+\begin{table}[htbp]
+\centering
+\caption{RIC register layout}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Bits} & \textbf{Name} & \textbf{Description} \\
+    \midrule
+    {[15:8]} & PENDING[7:0] & Interrupt pending bits. Set when an interrupt is latched, cleared by hardware during entry. \\
+    {[7:1]}  & ENABLE[7:1]  & Per-vector enable bits for vectors 7 down to 1. \\
+    {[0]}    & GIE          & Global Interrupt Enable. 0 on reset, set by \asm{ENIRQ}, cleared by \asm{DISIRQ} or interrupt entry. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+Vectors 0--3 (hardware IRQs) are only serviced when both the individual enable bit (in \asm{RIC}) and GIE are set. Vector~7 (NMI) fires unconditionally regardless of GIE. Vectors 5 and 6 (ILL\_OPCODE and PRIV\_FAULT) are synchronous and always serviced when they occur.
+
+\section{Interrupt Vector Table (RIV)}
+
+The 4332 maintains an 8-entry interrupt vector table in registers \asm{RIV[0]}--\asm{RIV[7]}. Each entry holds the 16-bit address of the interrupt handler for that vector. Entries are written with \asm{WRITERIV} and read with \asm{READRIV}:
+
+\begin{lstlisting}
+  ; Set handler for IRQ0 (vector 0) to address stored in %0
+  writeriv  %0, %1   ; RIV[%1] <- %0  (RS field is vector index)
+
+  ; Typical setup sequence
+  loadimm   %0, irq0_handler
+  loadimm   %1, 0            ; vector 0
+  writeriv  %0, %1
+\end{lstlisting}
+
+All vector registers initialise to \texttt{0x0000} on reset. If an interrupt fires before its vector has been written, execution jumps to address~0, which typically contains the reset code. This is almost certainly not what you want, so vectors should always be initialised before enabling interrupts.
+
+\section{Hardware Interrupt Entry Sequence}
+\label{sec:int-entry}
+
+When the interrupt controller detects a pending and enabled interrupt at an instruction boundary (\field{LAST\_STEP}~=~1), it begins a 5-step hardware entry micro-sequence. The CPU is stalled for these 5 cycles; no instructions from the normal stream are fetched or executed during this time.
+
+\begin{table}[htbp]
+\centering
+\caption{Interrupt entry micro-sequence}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Step} & \textbf{Action} & \textbf{Notes} \\
+    \midrule
+    0 & GIE $\leftarrow$ 0; clear pending bit & Disables further interrupt processing. \\
+    1 & RIP $\leftarrow$ RPC                  & Saves the next-PC (the instruction that would have executed). \\
+    2 & RM\_PREV $\leftarrow$ RM; RM $\leftarrow$ kernel & Saves privilege mode, switches to kernel. \\
+    3 & XR0--XR3 $\leftarrow$ context         & Saves faulting PC, vector, instruction word, and memory address. \\
+    4 & RPC $\leftarrow$ RIV[vec]; flush       & Jumps to handler; pipeline is flushed. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+The pipeline is flushed on step~4, which means any instruction already in the FETCH or DECODE stage at the time of the interrupt is squashed. The interrupt is always taken at a clean instruction boundary.
+
+\section{Returning from Interrupts (IRET)}
+\label{sec:iret}
+
+The \asm{IRET} instruction restores the CPU state saved during interrupt entry:
+
+\begin{enumerate}
+    \item \asm{RPC} $\leftarrow$ \asm{RIP} (restores saved program counter).
+    \item \asm{RM} $\leftarrow$ \asm{RM\_PREV} (restores previous privilege mode).
+    \item \asm{GIE} $\leftarrow$ 1 (re-enables interrupts).
+    \item Pipeline is flushed; execution resumes from the saved PC.
+\end{enumerate}
+
+\asm{IRET} is a kernel-only instruction (it has \field{PRIV\_CHECK} set in its CW). Attempting it from user mode raises a privilege fault, which is probably not what you want inside an exception handler.
+
+A minimal interrupt handler structure:
+
+\begin{lstlisting}
+irq0_handler:
+  ; Save any registers you need to clobber
+  push  %0
+  push  %1
+
+  ; ... handle the interrupt ...
+
+  ; Restore and return
+  pop   %1
+  pop   %0
+  iret
+\end{lstlisting}
+
+Since GIE is cleared on entry and restored by \asm{IRET}, no explicit \asm{DISIRQ}/\asm{ENIRQ} is needed in a simple handler.
+
+\section{Software Interrupts}
+
+The \asm{INT} instruction raises software interrupt vector~4 (SOFT\_INT). It sets the pending bit for vector~4 in \asm{RIC}; the interrupt is then processed at the next instruction boundary if GIE is set and the enable bit for vector~4 is set. \asm{INT} can be used to implement system calls from user mode.
+
+\section{Privilege Faults}
+
+A privilege fault (vector~6) is raised any time a system instruction is executed while the CPU is in user mode (\asm{RM}~bit~0~=~0). The fault is detected during the EXECUTE stage, before the instruction has any architectural effect --- no state change occurs. The exception context registers capture the faulting address and instruction word, allowing the kernel to diagnose the fault.
+
+\section{Illegal Opcode Faults}
+
+An illegal opcode fault (vector~5) is raised when the DECODE stage encounters an opcode whose CW ROM entry is the NOP control word (i.e. an opcode with no defined action, other than the actual \asm{NOP} instruction). It is also raised when a \asm{J} or \asm{CALL} instruction uses the reserved addressing mode \texttt{AM=11}. The fault fires before the instruction reaches EXECUTE.
+
+% =============================================================================
+\chapter{Memory Organisation}
+\label{ch:memory}
+% =============================================================================
+
+\section{Address Space}
+
+The 4332 has a 16-bit address space divided into four 16~KB banks as described in Table~\ref{tab:addressspace}. All addresses are byte addresses; word-aligned operations address even bytes and the least significant address bit is ignored.
+
+\begin{table}[htbp]
+\centering
+\caption{Address space layout}
+\label{tab:addressspace}
+\begin{tabularx}{\textwidth}{lllX}
+    \toprule
+    \textbf{Start} & \textbf{End} & \textbf{Size} & \textbf{Description} \\
+    \midrule
+    \texttt{0x0000} & \texttt{0x3FFF} & 16 KB & ROM / Program memory \\
+    \texttt{0x4000} & \texttt{0x7FFF} & 16 KB & Peripherals \\
+    \texttt{0x8000} & \texttt{0xBFFF} & 16 KB & RAM bank 0 (default stack) \\
+    \texttt{0xC000} & \texttt{0xFFFF} & 16 KB & RAM bank 1 \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Instruction Bus}
+
+The CPU presents a 16-bit \signal{iaddr} output (the program counter value) and receives 16-bit \signal{idata} as the next instruction. In the testbench and top-level design, the instruction bus is connected to a synchronous ROM. The instruction address is registered at the end of each cycle; the ROM must present valid data on the next clock edge. This is the ``Option C'' fetch/execute overlap strategy that handles the 1-cycle read latency of synchronous BRAM without stalling.
+
+The instruction bus is read-only; there is no instruction cache and no write path.
+
+\section{Data Bus}
+
+The data bus is a simple single-cycle interface with the following signals:
+
+\begin{table}[htbp]
+\centering
+\caption{Data bus signals}
+\begin{tabularx}{\textwidth}{lllX}
+    \toprule
+    \textbf{Signal} & \textbf{Dir} & \textbf{Width} & \textbf{Description} \\
+    \midrule
+    \signal{daddr}   & out & 16 & Memory address \\
+    \signal{ddata\_w} & out & 16 & Write data \\
+    \signal{ddata\_r} & in  & 16 & Read data \\
+    \signal{dwe}     & out &  1 & Write enable (synchronous write on rising edge) \\
+    \signal{dbe}     & out &  1 & Bus enable (asserted for memory reads) \\
+    \signal{dwmask}  & out &  2 & Byte write mask: bit 0 enables low byte, bit 1 enables high byte \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\signal{dwe} and \signal{dbe} are gated by \field{cond\_met}: a condition-not-met store or load does not produce any bus transaction.
+
+The byte write mask (\signal{dwmask}) follows the convention that a \emph{0} in the mask means the corresponding byte is written; a \emph{1} means it is held. This matches the active-low enable convention used in the RAM module. For word operations both bits are~0; for byte low (\asm{.l}) bit~1 is~1; for byte high (\asm{.h}) bit~0 is~1.
+
+\section{Memory-Mapped Peripherals}
+
+Peripheral access in the \texttt{0x4000}--\texttt{0x7FFF} range is routed to the \texttt{peripherals} entity by the \texttt{memory\_bus} module. The peripheral address is the low byte of the memory address (\signal{address[7:0]}). The following peripheral registers are defined:
+
+\begin{table}[htbp]
+\centering
+\caption{Peripheral register map (peripheral address)}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Address} & \textbf{R/W} & \textbf{Description} \\
+    \midrule
+    \texttt{0x00} & R   & Button inputs: \texttt{data[5:0]} = \{button\_0, btn[4:0]\} \\
+    \texttt{0x00} & W   & IO port register: \texttt{data[3:0]} = \{ioport\_3, ioport\_2, ioport\_1, ioport\_0\} \\
+    \texttt{0x01} & R   & Switch inputs: \texttt{data[15:0]} = sw[15:0] \\
+    \texttt{0x02} & W   & LED outputs: \texttt{data[15:0]} = led[15:0] \\
+    \texttt{0x03} & W   & 7-segment segments: \texttt{data[6:0]} = seg[6:0] \\
+    \texttt{0x04} & W   & 7-segment anode select: \texttt{data[3:0]} = an[3:0] \\
+    \texttt{0x05} & R/W & SPI data: write to transmit, read for received byte \\
+    \texttt{0x06} & R   & SPI status: \texttt{data[0]} = busy \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\chapter{Hardware Architecture}
+\label{ch:pipeline}
+% =============================================================================
+
+\section{Pipeline Overview}
+
+The 4332 uses a 3-stage pipeline:
+
+\begin{itemize}
+    \item \textbf{FETCH} --- Presents the program counter to the instruction ROM and latches the returned instruction word into the FD (Fetch/Decode) pipeline register.
+    \item \textbf{DECODE} --- Reads the CW ROM, looks up the register file for operand values, and latches results into the DE (Decode/Execute) pipeline register.
+    \item \textbf{EXECUTE} --- Drives the ALU, memory bus, flag registers, PC, stack pointer, and register file writeback based on the current control word.
+\end{itemize}
+
+Each stage takes exactly one clock cycle for single-step instructions. Multi-step instructions (those with \field{LAST\_STEP}~=~0 in the first CW entry) stall the FETCH stage and keep the instruction in EXECUTE, advancing the micro-step counter and selecting successive CW ROM entries on each subsequent cycle.
+
+\section{Micro-Sequencer}
+
+The micro-sequencer is a 3-bit step counter. On each rising edge where \field{LAST\_STEP}~=~1, it resets to 0. Otherwise it increments. The CW ROM is indexed by \texttt{\{opcode[5:0], step[2:0]\}}, giving up to 8 micro-steps per opcode. The FETCH stage is suppressed while \texttt{micro\_step~$\neq$~0}, ensuring that the instruction currently in EXECUTE holds the pipeline until it completes.
+
+\section{Hazard Handling}
+
+\subsection{RAW Hazards}
+
+Read-After-Write (RAW) hazards occur when an instruction in DECODE reads a register that the instruction currently in EXECUTE is writing. The 4332 does not use forwarding; instead, it inserts a one-cycle stall:
+
+\begin{enumerate}
+    \item A bubble (NOP control word) is injected into the DE register.
+    \item The FD register is frozen (FETCH does not advance).
+    \item On the next cycle, the EXECUTE stage has completed its writeback and the correct register value is available.
+\end{enumerate}
+
+The stall condition is: EXECUTE has \field{REG\_WE}~=~1, \field{cond\_met}~=~1, and the DECODE instruction's RS or RD index matches the EXECUTE writeback destination.
+
+\subsection{Branch Hazards}
+
+When a branch is taken, the pipeline is flushed: the FD and DE registers are invalidated (their \field{valid} bits cleared and their CW fields set to \field{CW\_NOP}). This produces a single-bubble penalty on every taken branch. Not-taken branches (condition not met) do not flush the pipeline.
+
+For 2-word jump instructions, the extension word is consumed in step~0 of the EXECUTE stage. The fetch stage advances past the extension word regardless of whether the branch is taken, ensuring the instruction following the extension word is the next to be fetched.
+
+\subsection{Interrupt Hazards}
+
+Interrupts are taken only at instruction boundaries (\field{LAST\_STEP}~=~1). When an interrupt is taken, the pipeline is flushed before the hardware entry sequence begins. This ensures a clean architectural state is captured in the exception registers.
+
+\section{LOADIMM and 2-Word Instructions}
+
+\asm{LOADIMM} is the only data instruction that uses an extension word. In step~0 of EXECUTE, the \field{fd\_instr} register (which holds the word following the opcode) is captured into the \field{imm\_word} latch, and \asm{RPC} is incremented to skip past it. In step~1, \field{WB\_IMM\_WORD} sources the writeback data from \field{imm\_word} and the register is written.
+
+The FETCH stage is suppressed during step~0, so \field{fd\_instr} holds the extension word stably throughout step~0 without being overwritten by a new fetch.
+
+\section{PC Management}
+
+The program counter \asm{RPC} is maintained by the EXECUTE stage. It is incremented in the FETCH stage as instructions are consumed, and may be redirected by:
+
+\begin{itemize}
+    \item A taken branch or jump (\field{PC\_JUMP}).
+    \item A subroutine call (\field{PC\_JUMP} with stack push).
+    \item A return instruction (\field{PC\_RET}): RPC $\leftarrow$ \field{ddata\_r} (popped from stack).
+    \item An interrupt entry (\field{PC\_INT} or hardware micro-sequence step~4): RPC $\leftarrow$ \asm{RIV[vec]}.
+    \item An IRET (\field{PC\_IRET}): RPC $\leftarrow$ \asm{RIP}.
+    \item \asm{HLT} (\field{PC\_STALL}): RPC is held at the current instruction address.
+\end{itemize}
+
+\section{Control Word ROM}
+\label{sec:cwrom}
+
+The CW ROM is a 512-entry, 32-bit wide array implemented in VHDL as a constant initialised by the \asm{init\_cw\_rom} elaboration-time function. Vivado infers this as a BRAM. The index is \texttt{\{opcode[5:0], step[2:0]\}}.
+
+New instructions can be added by writing a new entry block in \asm{init\_cw\_rom} using the \asm{make\_cw} helper, which accepts named parameters for every CW field and defaults all others to safe (NOP-like) values. This is the entire extent of RTL change required to add an instruction.
+
+% =============================================================================
+\chapter{Integration and Synthesis}
+\label{ch:integration}
+% =============================================================================
+
+\section{Top-Level Ports}
+
+The \texttt{cpu} entity has the following ports:
+
+\begin{table}[htbp]
+\centering
+\caption{CPU port list}
+\begin{tabularx}{\textwidth}{lllX}
+    \toprule
+    \textbf{Port} & \textbf{Dir} & \textbf{Width} & \textbf{Description} \\
+    \midrule
+    \signal{clk}     & in  &  1 & System clock (rising edge triggered) \\
+    \signal{reset}   & in  &  1 & Synchronous active-high reset \\
+    \signal{iaddr}   & out & 16 & Instruction address (program counter) \\
+    \signal{idata}   & in  & 16 & Instruction data from ROM \\
+    \signal{daddr}   & out & 16 & Data bus address \\
+    \signal{ddata\_w} & out & 16 & Data bus write data \\
+    \signal{ddata\_r} & in  & 16 & Data bus read data \\
+    \signal{dwe}     & out &  1 & Data bus write enable \\
+    \signal{dbe}     & out &  1 & Data bus bus enable (read) \\
+    \signal{dwmask}  & out &  2 & Byte write mask \\
+    \signal{irq}     & in  &  4 & External interrupt requests (active high, level) \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Clock and Reset}
+
+All flip-flops in the CPU are triggered on the rising edge of \signal{clk}. The \signal{reset} signal is synchronous and active-high. If the board reset comes from an asynchronous source (e.g. a debounced button), a two-flip-flop synchronisation chain should be added before connecting it to the CPU.
+
+On an SRAM-based FPGA like the Artix-7, flip-flops are initialised to known states when the bitstream is loaded, so in principle the CPU can run without a reset signal. In practice the reset is useful during simulation and debugging.
+
+\section{Connecting to the Memory Bus}
+
+The CPU's instruction bus is designed to connect directly to a synchronous ROM (BRAM or initialised distributed RAM). The CPU presents an address on \signal{iaddr} and expects the data to be latched into \signal{idata} on the following rising edge. This means the ROM must have a one-cycle read latency, which is the natural behaviour of BRAM on the Artix-7.
+
+The \texttt{memory\_bus} entity handles routing of the data bus to ROM, peripherals, and RAM. It decodes the top two address bits to select the target and drives the appropriate enable and write signals.
+
+\section{Interrupt Wiring}
+
+The four external IRQ lines (\signal{irq[3:0]}) are active-high, level-sensitive signals from the CPU's perspective. The interrupt controller samples them every cycle; they must be synchronous with \signal{clk}. If your interrupt source is asynchronous (e.g. an external pin), add a two-stage synchronisation chain clocked by \signal{clk} before connecting to \signal{irq}.
+
+Note that the individual enable bits for IRQ0--IRQ3 in \asm{RIC} must be set (along with GIE) before any hardware IRQ can be taken. The IRQ lines should be held low until the firmware has set up interrupt vectors and enabled the relevant channels.
+
+\section{Synthesis Guidelines}
+
+\subsection{BRAM Inference}
+
+The CW ROM is initialised by the \asm{init\_cw\_rom} function at elaboration time. Vivado will infer this as a block RAM automatically. If the inference fails (visible as the CW ROM appearing in LUT usage rather than BRAM usage in the synthesis report), the most likely cause is that the array is too small --- the 512-entry, 32-bit wide array is above the threshold for BRAM inference on most Vivado versions.
+
+Both the RAM banks and the ROM use the same synchronous read style, which is BRAM-friendly. Do not change these to asynchronous reads without also adjusting the fetch/execute pipeline timing.
+
+\subsection{Timing}
+
+The natural critical path runs from the register file output through the ALU and back to the register file input (RAW path through the scratchpad in the EXECUTE stage). A secondary critical path runs from the CW ROM output through the datapath muxes. With default Vivado settings the design should meet timing at \mbox{50--100~MHz} on the Artix-7; the Basys~3 runs at 100~MHz.
+
+If timing fails, the most common remedies are:
+
+\begin{enumerate}
+    \item Ensure the CW ROM is inferred as BRAM (avoids LUT-path delays on the CW bus).
+    \item Pipeline the ALU operand mux if the multiplexer depth becomes the critical path.
+    \item Add a register stage between the CW ROM output and the datapath (this adds one pipeline stage and requires adjusting the micro-sequencer).
+\end{enumerate}
+
+\subsection{Optimising for Area}
+
+The biggest consumer of LUTs is the ALU and operand mux. The 32-bit wide ALU path (for \asm{.d} operations) is the main contributor; if double-word operations are not required the 32-bit paths can be trimmed to 16 bits, cutting approximately 20--30\% of the LUT usage.
+
+% =============================================================================
+\chapter{Simulation}
+\label{ch:simulation}
+% =============================================================================
+
+\section{Testbench Overview}
+
+The 4332 package includes a self-checking testbench (\texttt{cpu\_tb.vhd}) that verifies CPU functional correctness across 13 test suites. The testbench instantiates the CPU, provides a simple instruction ROM (an array loaded by the test process), and a simple data RAM modelled as a protected shared variable.
+
+\section{Test Suites}
+
+\begin{table}[htbp]
+\centering
+\caption{Testbench test suites}
+\begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \textbf{Suite} & \textbf{Name} & \textbf{What it tests} \\
+    \midrule
+    1  & Reset              & PC is zero during and immediately after reset. \\
+    2  & NOP pipeline       & PC advances correctly through three sequential NOPs. \\
+    3  & LOADIMM            & Two-word load of a 16-bit immediate into a register. \\
+    4  & MOV                & Register-to-register move with explicit destination. \\
+    5  & ALU                & ADD, SUB, AND, OR, XOR, SHL, SHR, INC, DEC. \\
+    6  & CMP + branches     & CMP sets flags; JZ taken when Z=1; JNZ not-taken when Z=1. \\
+    7  & JMP indirect       & 1-word indirect jump via register. \\
+    8  & CALL / RET         & 1-word indirect call; callee sets register; RET returns. \\
+    9  & LD / ST            & Load from data RAM; store result at a new address. \\
+    10 & PUSH / POP         & Push a value; clobber register; pop restores it. \\
+    11 & Illegal opcode     & Opcode 63 (undefined) routes to vector 5 handler. \\
+    12 & IRQ0 + IRET        & Hardware IRQ fires; handler runs; IRET returns to main. \\
+    13 & Conditional exec   & ADD.z, MOV.c, MOV.n both taken and suppressed. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Build System}
+
+The project ships with \texttt{build.sh}, a Bash script wrapping GHDL for simulation and generating a Vivado Tcl project script for synthesis. The following targets are available:
+
+\begin{table}[htbp]
+\centering
+\caption{build.sh targets}
+\begin{tabularx}{\textwidth}{lX}
+    \toprule
+    \textbf{Target} & \textbf{Description} \\
+    \midrule
+    \texttt{analyse}   & Analyse all VHDL sources into the GHDL work library. \\
+    \texttt{elaborate} & Elaborate the top-level entity. \\
+    \texttt{sim}       & Full analysis + elaboration + simulation. Produces \texttt{wave.vcd}. \\
+    \texttt{clean}     & Remove all GHDL build artefacts. \\
+    \texttt{vivado}    & Write a Vivado Tcl project script for synthesis on the Basys~3. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Running Simulation}
+
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small, frame=single,
+                   backgroundcolor=\color{codebg}]
+./build.sh sim
+\end{lstlisting}
+
+This runs all 13 test suites and prints \texttt{[PASS]} or \texttt{[FAIL]} for each check. A timeout of 200~$\mu$s is enforced; if the simulation does not complete within that time it is aborted with a \texttt{TIMEOUT} failure.
+
+Waveforms are written to \texttt{wave.vcd} and can be inspected with GTKWave:
+
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small, frame=single,
+                   backgroundcolor=\color{codebg}]
+gtkwave wave.vcd
+\end{lstlisting}
+
+\subsection{Synthesis}
+
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small, frame=single,
+                   backgroundcolor=\color{codebg}]
+./build.sh vivado
+vivado -mode batch -source vivado_project.tcl
+\end{lstlisting}
+
+The generated Tcl script creates a Vivado project targeting the \texttt{xc7a35tcpg236-1} (Basys~3), adds all source files, sets VHDL~2008 file type, applies the XDC constraints from \texttt{basys3.xdc}, sets the top entity to \texttt{top}, and launches synthesis.
+
+\section{Requirements}
+
+\begin{itemize}
+    \item \textbf{Simulation}: GHDL with VHDL-2008 support. GTKWave for waveform viewing.
+    \item \textbf{Synthesis}: Vivado (any recent version targeting Artix-7). A Basys~3 board for hardware testing.
+    \item \textbf{Assembler}: Python~3 (no external dependencies) for \texttt{as.py}.
+\end{itemize}
+
+% =============================================================================
+\chapter{Assembler}
+\label{ch:assembler}
+% =============================================================================
+
+\section{Overview}
+
+The 4332 assembler is a two-pass Python script (\texttt{as.py}). Pass~1 tokenises the source, resolves label addresses, and computes instruction sizes. Pass~2 emits machine code using the resolved label table. It produces raw binary, ASCII hex, or VHDL \texttt{textio} format output.
+
+\section{Usage}
+
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small, frame=single,
+                   backgroundcolor=\color{codebg}]
+python3 as.py [options] input.asm
+
+Options:
+  -o, --output FILE    Output file (default: a.out)
+  -f, --format FORMAT  Output format: bin | hex | textio (default: bin)
+\end{lstlisting}
+
+The \texttt{textio} format produces one 16-bit word per line as a string of 16 \texttt{0}/\texttt{1} characters, directly readable in VHDL via \texttt{std.textio} with a \texttt{bit\_vector(15 downto 0)} variable.
+
+\section{Register Syntax}
+
+Registers are written with a \texttt{\%} prefix: \reg{0}--\reg{7}.
+
+\section{Mnemonics and Suffixes}
+
+Mnemonics are case-insensitive. Suffixes are separated from the base mnemonic by a dot (\texttt{.}) or slash (\texttt{/}). Width suffixes (\texttt{w}, \texttt{l}, \texttt{h}, \texttt{d}) apply to data instructions; condition suffixes (\texttt{z}, \texttt{c}, \texttt{n}) apply to all instructions. Both may be combined:
+
+\begin{lstlisting}
+  add.l.z  %1, %2    ; Add low bytes, only if Z=1
+  mov.z    %3, %0    ; Move to %3 if Z=1
+  j.c      target    ; Jump if C=1
+\end{lstlisting}
+
+Width suffixes on \asm{J} and \asm{CALL} are not permitted (they encode addressing mode, not data width, and the assembler selects the mode automatically from the operand form).
+
+\section{Addressing Modes for J and CALL}
+
+The assembler selects the addressing mode based purely on the operand form:
+
+\begin{lstlisting}
+  j    target      ; AM_DIRECT: 2 words, abs address in extension word
+  j    %3          ; AM_INDIRECT: 1 word, target = %3
+  j    %3, 0x10    ; AM_INDIR_OFF: 2 words, target = %3 + extension word
+\end{lstlisting}
+
+\section{LOADIMM}
+
+\asm{LOADIMM} always assembles to two words: the opcode word (with the destination register in \field{RD}) followed by the 16-bit immediate value:
+
+\begin{lstlisting}
+  loadimm  %2, 0x1234   ; %2 <- 0x1234 (two instruction words)
+  loadimm  %0, label    ; %0 <- address of 'label'
+\end{lstlisting}
+
+Negative values and labels are both accepted. Immediates must fit in 16 bits.
+
+\section{Directives}
+
+\begin{table}[htbp]
+\centering
+\caption{Assembler directives}
+\begin{tabularx}{\textwidth}{lX}
+    \toprule
+    \textbf{Directive} & \textbf{Description} \\
+    \midrule
+    \texttt{.dw expr [, expr ...]} & Emit one or more raw 16-bit words. \\
+    \texttt{.db byte [, byte ...]} & Emit bytes packed two-per-word (must be even count). \\
+    \texttt{.ascii "string"}       & Emit packed bytes from a string literal (no terminator). \\
+    \texttt{.asciz "string"}       & Like \texttt{.ascii} but appends a null byte. \\
+    \texttt{.str "string"}         & Alias for \texttt{.ascii}. \\
+    \texttt{.strz "string"}        & Alias for \texttt{.asciz}. \\
+    \bottomrule
+\end{tabularx}
+\end{table}
+
+String literals support the following escape sequences: \texttt{{\textbackslash}n} (LF), \texttt{{\textbackslash}r} (CR), \texttt{{\textbackslash}t} (tab), \texttt{{\textbackslash}0} (null), \texttt{{\textbackslash}{\textbackslash}} (backslash), \texttt{{\textbackslash}"} (quote), \texttt{{\textbackslash}xHH} (hex byte). Strings packed with \texttt{.ascii} or \texttt{.asciz} must have an even byte count (including any null terminator); the assembler raises an error if this is not the case.
+
+\section{Labels}
+
+A label is a valid identifier followed by a colon:
+
+\begin{lstlisting}
+  loop_start:
+    dec   %0
+    j.n   loop_start   ; branch back while N=1 (result < 0 never happens
+                       ;   if %0 starts positive, this illustrates .n usage)
+\end{lstlisting}
+
+Labels may refer to either code or data addresses; there is no distinction. Label names must consist of letters, digits, and underscores, must not start with a digit, and are case-sensitive. Forward references are supported (pass~1 resolves all labels before pass~2 emits code).
+
+\section{Number Literals}
+
+Numbers are written in decimal by default, hexadecimal with an \texttt{0x} prefix, or binary with an \texttt{0b} prefix.
+
+\section{Comments}
+
+Lines starting with \texttt{;} or \texttt{\#} are comments. Inline comments may appear after any instruction using either character.
+
+% =============================================================================
+\appendix
+% =============================================================================
+
+\chapter{Instruction Set Reference}
+\label{app:instructionset}
+
+\section{Instruction Listing by Group}
+
+\begin{longtable}{lll}
+\toprule
+\textbf{Mnemonic} & \textbf{Opcode} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{c}{\textit{(continued)}} \\
+\toprule
+\textbf{Mnemonic} & \textbf{Opcode} & \textbf{Description} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+
+\multicolumn{3}{l}{\textit{Arithmetic and Logic}} \\
+\midrule
+\instr{ADD}     & 0x00 & \reg{0} $\leftarrow$ \reg{0} + \reg{RS} \\
+\instr{SUB}     & 0x01 & \reg{0} $\leftarrow$ \reg{0} $-$ \reg{RS} \\
+\instr{AND}     & 0x02 & \reg{0} $\leftarrow$ \reg{0} AND \reg{RS} \\
+\instr{OR}      & 0x03 & \reg{0} $\leftarrow$ \reg{0} OR \reg{RS} \\
+\instr{XOR}     & 0x04 & \reg{0} $\leftarrow$ \reg{0} XOR \reg{RS} \\
+\instr{NOT}     & 0x05 & \reg{0} $\leftarrow$ NOT \reg{0} \\
+\instr{SHL}     & 0x06 & \reg{0} $\leftarrow$ \reg{0} $\ll$ 1; C $\leftarrow$ shifted-out bit \\
+\instr{SHR}     & 0x07 & \reg{0} $\leftarrow$ \reg{0} $\gg$ 1; C $\leftarrow$ shifted-out bit \\
+\instr{INC}     & 0x08 & \reg{0} $\leftarrow$ \reg{0} + 1 \\
+\instr{DEC}     & 0x09 & \reg{0} $\leftarrow$ \reg{0} $-$ 1 \\
+\instr{CMP}     & 0x0A & flags $\leftarrow$ \reg{0} $-$ \reg{RS}; no writeback \\
+\instr{MOV}     & 0x0B & \reg{RD} $\leftarrow$ \reg{RS} (explicit destination via \field{RD\_FROM\_INST}) \\
+\instr{LOADIMM} & 0x0C & \reg{RD} $\leftarrow$ next instruction word (2-word instruction) \\
+\instr{PASSA}   & 0x0D & \reg{0} $\leftarrow$ \reg{RD} (pass A-path through ALU) \\
+\instr{PASSB}   & 0x0E & \reg{0} $\leftarrow$ \reg{RS} (pass B-path through ALU) \\
+\instr{NOP}     & 0x0F & No operation \\
+\midrule
+\multicolumn{3}{l}{\textit{Memory}} \\
+\midrule
+\instr{LD}      & 0x10 & \reg{RD} $\leftarrow$ mem[\reg{RS}] (word) \\
+\instr{ST}      & 0x11 & mem[\reg{RD}] $\leftarrow$ \reg{RS} (word) \\
+\instr{LDB}     & 0x12 & \reg{RD} $\leftarrow$ mem[\reg{RS}] (byte) \\
+\instr{STB}     & 0x13 & mem[\reg{RD}] $\leftarrow$ \reg{RS} (byte) \\
+\instr{PUSH}    & 0x14 & RSP $\leftarrow$ RSP $-$ 1; mem[RSP] $\leftarrow$ \reg{RS} \\
+\instr{POP}     & 0x15 & \reg{RD} $\leftarrow$ mem[RSP]; RSP $\leftarrow$ RSP + 1 \\
+\instr{PEEK}    & 0x16 & \reg{RD} $\leftarrow$ mem[RSP] (no SP change) \\
+\instr{FLUSH}   & 0x17 & Pipeline flush hint (currently NOP) \\
+\midrule
+\multicolumn{3}{l}{\textit{Control Flow}} \\
+\midrule
+\instr{J}       & 0x18 & Jump unconditionally (3 addressing modes; see Section~\ref{sec:dw-am}) \\
+\instr{J.z}     & 0x18+CE=01 & Jump if Z=1 \\
+\instr{J.c}     & 0x18+CE=10 & Jump if C=1 \\
+\instr{J.n}     & 0x18+CE=11 & Jump if N=1 \\
+\instr{CALL}    & 0x21 & Push return address; jump (3 addressing modes) \\
+\instr{RET}     & 0x22 & RPC $\leftarrow$ pop() \\
+\instr{IRET}    & 0x23 & RPC $\leftarrow$ RIP; restore mode; GIE $\leftarrow$ 1 (kernel only) \\
+\instr{INT}     & 0x24 & Set pending bit for vector 4 (software interrupt) \\
+\instr{HLT}     & 0x25 & Halt: PC stalls on this instruction forever \\
+\midrule
+\multicolumn{3}{l}{\textit{System (kernel mode only)}} \\
+\midrule
+\instr{ENIRQ}   & 0x30 & GIE $\leftarrow$ 1 \\
+\instr{DISIRQ}  & 0x31 & GIE $\leftarrow$ 0 \\
+\instr{SETMODE} & 0x32 & RM $\leftarrow$ \reg{RS}[1:0] \\
+\instr{GETMODE} & 0x33 & \reg{0} $\leftarrow$ \{RM\_PREV, RM\} \\
+\instr{WRITERIC} & 0x34 & RIC $\leftarrow$ \reg{RS} \\
+\instr{READRIC} & 0x35 & \reg{0} $\leftarrow$ RIC \\
+\instr{READRIV} & 0x36 & \reg{0} $\leftarrow$ RIV[\reg{RS}] \\
+\instr{WRITERIV} & 0x37 & RIV[\reg{RS}] $\leftarrow$ \reg{RD} \\
+\instr{HALT}    & 0x39 & Alias for HLT \\
+\end{longtable}
+
+\section{Instruction Descriptions}
+
+\subsection*{ADD --- Add}
+\textbf{Syntax:} \asm{add[.w|.l|.h|.d][.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} \reg{0} $\leftarrow$ \reg{0} + \reg{RS} \\
+\textbf{Flags:} Z, C, N, V updated. \\
+\textbf{Notes:} When \field{RD\_FROM\_INST} is not set, writeback always goes to \reg{0}. ADD with explicit \field{RD} field requires \asm{MOV} to move the result. The accumulator-centric design is intentional: most tight loops do their work through \reg{0} and MOV out the result when done.
+
+\subsection*{SUB --- Subtract}
+\textbf{Syntax:} \asm{sub[.w|.l|.h|.d][.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} \reg{0} $\leftarrow$ \reg{0} $-$ \reg{RS} \\
+\textbf{Flags:} Z, C (borrow), N, V updated.
+
+\subsection*{CMP --- Compare}
+\textbf{Syntax:} \asm{cmp[.w|.l|.h|.d][.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} flags $\leftarrow$ \reg{0} $-$ \reg{RS} (result discarded) \\
+\textbf{Flags:} Z, C, N, V updated. \\
+\textbf{Notes:} The \field{RD} field is ignored (no writeback). Use \asm{CMP} before a conditional jump to test relationships between registers.
+
+\subsection*{MOV --- Move}
+\textbf{Syntax:} \asm{mov[.w|.l|.h|.d][.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} \reg{RD} $\leftarrow$ \reg{RS} \\
+\textbf{Flags:} Not updated (PASSB does not update flags). \\
+\textbf{Notes:} MOV is the only standard ALU instruction that uses an explicit destination (\field{RD\_FROM\_INST}~=~1 in its CW).
+
+\subsection*{LOADIMM --- Load Immediate}
+\textbf{Syntax:} \asm{loadimm \%rd, imm16} \\
+\textbf{Operation:} \reg{RD} $\leftarrow$ imm16 \\
+\textbf{Size:} 2 words. \\
+\textbf{Flags:} Not updated. \\
+\textbf{Notes:} The \field{DW} and \field{CE} fields in the opcode word are both ignored. The immediate is always the full 16-bit extension word. There is no short immediate form; use ALU instructions with the 4-bit \field{SB\_IMM} source for small constants.
+
+\subsection*{LD --- Load Word}
+\textbf{Syntax:} \asm{ld[.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} \reg{RD} $\leftarrow$ mem[\reg{RS}] \\
+\textbf{Size:} 2 micro-steps. \\
+\textbf{Notes:} Step~0 presents the address; step~1 latches the result from \signal{ddata\_r}. The address register is \reg{RS}; the destination is \reg{RD}.
+
+\subsection*{ST --- Store Word}
+\textbf{Syntax:} \asm{st[.z|.c|.n] \%rd, \%rs} \\
+\textbf{Operation:} mem[\reg{RD}] $\leftarrow$ \reg{RS} \\
+\textbf{Notes:} The \emph{address} is in \reg{RD} and the \emph{data} to write is in \reg{RS}. This is the opposite of the conventional load direction; it follows from the instruction encoding where \field{RD} is the ``first operand'' and \field{RS} is the ``second operand.''
+
+\subsection*{PUSH --- Push to Stack}
+\textbf{Syntax:} \asm{push[.z|.c|.n] \%rs} \\
+\textbf{Operation:} RSP $\leftarrow$ RSP $-$ 1; mem[RSP] $\leftarrow$ \reg{RS} \\
+\textbf{Notes:} Pre-decrement: the new RSP value is the address written.
+
+\subsection*{POP --- Pop from Stack}
+\textbf{Syntax:} \asm{pop[.z|.c|.n] \%rd} \\
+\textbf{Operation:} \reg{RD} $\leftarrow$ mem[RSP]; RSP $\leftarrow$ RSP + 1 \\
+\textbf{Notes:} Post-increment: the value at the current RSP is read, then RSP is incremented.
+
+\subsection*{J --- Jump}
+\textbf{Syntax:} \asm{j[.z|.c|.n] target} or \asm{j[.z|.c|.n] \%rs} or \asm{j[.z|.c|.n] \%rs, offset} \\
+\textbf{Operation:} RPC $\leftarrow$ target (if condition met) \\
+\textbf{Notes:} The assembler selects the addressing mode based on operand form (see Section~\ref{sec:dw-am}). The \field{J} opcode subsumes all conditional and unconditional jumps; what were previously separate \asm{JZ}, \asm{JNZ}, \asm{JC}, \asm{JA}, etc.\ opcodes in the testbench are now encoded as \asm{J} with the appropriate \field{CE} field.
+
+\textit{Note:} The testbench still uses separate \asm{JZ}/\asm{JNZ}/\asm{JC}/\asm{JA}/etc.\ opcode constants for historical reasons. These map to opcodes 25--32 and have their own CW entries with the appropriate \field{BRANCH\_COND} setting.
+
+\subsection*{CALL --- Call Subroutine}
+\textbf{Syntax:} \asm{call[.z|.c|.n] target} or \asm{call[.z|.c|.n] \%rs} \\
+\textbf{Operation:} RSP $\leftarrow$ RSP $-$ 1; mem[RSP] $\leftarrow$ RPC+1; RPC $\leftarrow$ target \\
+\textbf{Notes:} The return address pushed is the address of the instruction following \asm{CALL} (or its extension word). Conditional calls are supported: if the condition is not met, neither the push nor the jump occurs.
+
+\subsection*{WRITERIV / READRIV --- Write / Read Interrupt Vector}
+\textbf{Syntax:} \asm{writeriv \%rd, \%rs} / \asm{readriv \%rs} \\
+\textbf{Operation (WRITERIV):} RIV[\reg{RS}] $\leftarrow$ \reg{RD} \\
+\textbf{Operation (READRIV):} \reg{0} $\leftarrow$ RIV[\reg{RS}] \\
+\textbf{Notes:} \reg{RS} holds the vector number (0--7). These are kernel-only instructions.
+
+% =============================================================================
+\chapter{Assembler Language Reference}
+\label{app:assemblylanguage}
+% =============================================================================
+
+\section{Source File Format}
+
+Source files are plain text with one statement per line. Lines are processed in order; the assembler is not whitespace-sensitive beyond token separation.
+
+\section{Comments}
+
+Single-line comments are introduced by \texttt{;} or \texttt{\#}. Everything from the comment character to the end of the line is ignored.
+
+\begin{lstlisting}
+  ; This is a comment
+  add  %0, %1   # inline comment
+\end{lstlisting}
+
+\section{Labels}
+
+A label definition is a valid identifier immediately followed by a colon, on its own line or before a statement. Labels are case-sensitive.
+
+A valid identifier starts with a letter or underscore and contains only letters, digits, and underscores. Labels may not begin with a digit.
+
+\begin{lstlisting}
+main:
+  loadimm  %0, 42
+loop_top:
+  dec      %0
+  j.n      loop_top
+  hlt
+\end{lstlisting}
+
+\section{Number Literals}
+
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Prefix} & \textbf{Base} & \textbf{Example} \\
+\midrule
+none   & Decimal     & \texttt{255}, \texttt{-1} \\
+\texttt{0x} & Hexadecimal & \texttt{0xFF}, \texttt{0x1234} \\
+\texttt{0b} & Binary      & \texttt{0b1010}, \texttt{0b11110000} \\
+\bottomrule
+\end{tabularx}
+
+\section{String Escape Sequences}
+
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Sequence} & \textbf{Value} & \textbf{Description} \\
+\midrule
+\texttt{{\textbackslash}n}    & 0x0A & Line feed \\
+\texttt{{\textbackslash}r}    & 0x0D & Carriage return \\
+\texttt{{\textbackslash}t}    & 0x09 & Horizontal tab \\
+\texttt{{\textbackslash}0}    & 0x00 & Null byte \\
+\texttt{{\textbackslash}{\textbackslash}} & 0x5C & Backslash \\
+\texttt{{\textbackslash}"}    & 0x22 & Double quote \\
+\texttt{{\textbackslash}xHH}  & 0xHH & Arbitrary byte (two hex digits) \\
+\bottomrule
+\end{tabularx}
+
+% =============================================================================
+\chapter{Control Word Layout}
+\label{app:cwlayout}
+% =============================================================================
+
+The 32-bit control word is laid out as follows. Every bit not listed is either reserved or part of a field shown below. All unset bits default to a safe/NOP value for their respective datapath.
+
+\begin{longtable}{lllX}
+\toprule
+\textbf{Bits} & \textbf{Field} & \textbf{Width} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\textit{(continued)}} \\
+\toprule
+\textbf{Bits} & \textbf{Field} & \textbf{Width} & \textbf{Description} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+
+{[31:28]} & \field{ALU\_OP}           & 4 & ALU operation select. See Table~\ref{tab:aluop}. \\
+{[27:25]} & \field{SRC\_B}            & 3 & ALU B-input source. See Table~\ref{tab:srcb}. \\
+{[24]}    & \field{REG\_WE}           & 1 & Register file write enable. \\
+{[23]}    & \field{RD\_FROM\_INST}    & 1 & 1 = use \field{RD} from instruction word as destination; 0 = write to \reg{0}. \\
+{[22:20]} & \field{WB\_SRC}           & 3 & Writeback data source. See Table~\ref{tab:wbsrc}. \\
+{[19]}    & \field{WIDTH\_FROM\_INST} & 1 & 1 = take effective width from \field{inst[3:2]}; 0 = use \field{WIDTH} field. \\
+{[18:17]} & \field{WIDTH}             & 2 & Width override when \field{WIDTH\_FROM\_INST}~=~0. \\
+{[16]}    & \field{MEM\_RD}           & 1 & Assert \signal{dbe} (data bus read enable). \\
+{[15]}    & \field{MEM\_WR}           & 1 & Assert \signal{dwe} (data bus write enable). \\
+{[14]}    & \field{MEM\_WIDTH}        & 1 & 1 = word access (both byte lanes); 0 = byte access (use dwmask). \\
+{[13:12]} & \field{MEM\_SRC}          & 2 & Memory address / write data source. See Table~\ref{tab:memsrc}. \\
+{[11:9]}  & \field{PC\_SRC}           & 3 & PC update source. See Table~\ref{tab:pcsrc}. \\
+{[8:5]}   & \field{BRANCH\_COND}      & 4 & Branch condition. See Table~\ref{tab:branchcond}. \\
+{[4:2]}   & \field{SP\_OP}            & 3 & Stack pointer operation. See Table~\ref{tab:spop}. \\
+{[1]}     & \field{PRIV\_CHECK}       & 1 & 1 = instruction requires kernel mode; raises PRIV\_FAULT if in user mode. \\
+{[0]}     & \field{LAST\_STEP}        & 1 & 1 = this is the final micro-step; reset micro-step counter on next cycle. \\
+\end{longtable}
+
+\begin{table}[htbp]
+\centering
+\caption{ALU\_OP encodings}
+\label{tab:aluop}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Operation} \\
+\midrule
+0000 & ALU\_ADD   & A + B \\
+0001 & ALU\_SUB   & A $-$ B (also CMP) \\
+0010 & ALU\_AND   & A AND B \\
+0011 & ALU\_OR    & A OR B \\
+0100 & ALU\_XOR   & A XOR B \\
+0101 & ALU\_NOT   & NOT A \\
+0110 & ALU\_SHL   & A $\ll$ 1 (carry out = A[MSB]) \\
+0111 & ALU\_SHR   & A $\gg$ 1 (carry out = A[0]) \\
+1000 & ALU\_INC   & A + 1 \\
+1001 & ALU\_DEC   & A $-$ 1 \\
+1010 & ALU\_CMP   & A $-$ B (flags only, same as SUB) \\
+1011 & ALU\_PASSA & A (pass through, flags not updated) \\
+1100 & ALU\_PASSB & B (pass through, flags not updated) \\
+1101 & ALU\_NOP   & Zero (no flags updated) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{SRC\_B encodings}
+\label{tab:srcb}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Source} \\
+\midrule
+000 & SB\_RS  & Register file [\reg{RS}] \\
+001 & SB\_IMM & 4-bit zero-extended immediate from \field{inst[3:0]} \\
+010 & SB\_MEM & Data bus read data (\signal{ddata\_r}) \\
+011 & SB\_SP  & Stack pointer (\asm{RSP}) \\
+100 & SB\_PC  & Program counter (\asm{RPC}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{WB\_SRC encodings}
+\label{tab:wbsrc}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Source} \\
+\midrule
+000 & WB\_ALU      & ALU result \\
+001 & WB\_MEM      & Data bus read data (\signal{ddata\_r}) \\
+010 & WB\_IMM      & 4-bit immediate (zero-extended) \\
+011 & WB\_PC1      & RPC + 1 (next instruction address) \\
+100 & WB\_SPEC     & Special register (decoded from opcode: RM, RIC, or RIV) \\
+101 & WB\_IMM\_WORD& Captured 16-bit immediate word (for LOADIMM step~1) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{MEM\_SRC encodings}
+\label{tab:memsrc}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Memory address / write data source} \\
+\midrule
+00 & MS\_RS  & Register file [\reg{RS}] \\
+01 & MS\_SP  & Stack pointer (\asm{RSP}) \\
+10 & MS\_PC  & RPC + 1 (for CALL: saves the return address) \\
+11 & MS\_IMM & 4-bit immediate (zero-extended) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{PC\_SRC encodings}
+\label{tab:pcsrc}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Next-PC source} \\
+\midrule
+000 & PC\_SEQ   & Sequential: RPC already incremented by FETCH \\
+001 & PC\_JUMP  & Jump: target determined by addressing mode \\
+010 & PC\_STALL & Stall: RPC $\leftarrow$ \field{de\_pc} (hold at current instruction, HLT) \\
+011 & PC\_INT   & Interrupt: RPC $\leftarrow$ RIV[vec] \\
+100 & PC\_RET   & Return: RPC $\leftarrow$ \signal{ddata\_r} (popped return address) \\
+101 & PC\_IRET  & Interrupt return: RPC $\leftarrow$ RIP; restore mode; GIE $\leftarrow$ 1 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{BRANCH\_COND encodings}
+\label{tab:branchcond}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Condition} \\
+\midrule
+0000 & BR\_NEVER & Never taken (used to prevent jump when PC\_JUMP is set but branch is structural only) \\
+0001 & BR\_ALWAYS & Always taken \\
+0010 & BR\_Z      & Z = 1 \\
+0011 & BR\_NZ     & Z = 0 \\
+0100 & BR\_C      & C = 1 \\
+0101 & BR\_NC     & C = 0 \\
+0110 & BR\_A      & C = 0 AND Z = 0 (above, unsigned) \\
+0111 & BR\_B      & C = 1 (below, unsigned; same as BR\_C) \\
+1000 & BR\_AE     & C = 0 (above or equal) \\
+1001 & BR\_BE     & C = 1 OR Z = 1 (below or equal) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{SP\_OP encodings}
+\label{tab:spop}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Value} & \textbf{Name} & \textbf{Stack pointer operation} \\
+\midrule
+000 & SP\_NONE & No change \\
+001 & SP\_PUSH & RSP $\leftarrow$ RSP $-$ 1 (pre-decrement before write) \\
+010 & SP\_POP  & RSP $\leftarrow$ RSP + 1 (post-increment after read) \\
+011 & SP\_INC  & RSP $\leftarrow$ RSP + 1 (standalone increment) \\
+100 & SP\_DEC  & RSP $\leftarrow$ RSP $-$ 1 (standalone decrement) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\chapter{Register File}
+\label{app:registers}
+% =============================================================================
+
+\begin{table}[htbp]
+\centering
+\caption{General-purpose registers}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Register} & \textbf{Reset Value} & \textbf{Notes} \\
+\midrule
+\reg{0} & \texttt{0x0000} & Implicit ALU accumulator / result register \\
+\reg{1} & \texttt{0x0000} & General purpose / argument register 1 \\
+\reg{2} & \texttt{0x0000} & General purpose / argument register 2 \\
+\reg{3} & \texttt{0x0000} & General purpose / argument register 3 \\
+\reg{4} & \texttt{0x0000} & General purpose \\
+\reg{5} & \texttt{0x0000} & General purpose \\
+\reg{6} & \texttt{0x0000} & General purpose \\
+\reg{7} & \texttt{0x0000} & General purpose \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Special-purpose registers}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Register} & \textbf{Reset Value} & \textbf{Description} \\
+\midrule
+\asm{RSP}  & \texttt{0xBFFE} & Stack pointer (top of RAM bank 0) \\
+\asm{RPC}  & \texttt{0x0000} & Program counter \\
+\asm{RIP}  & \texttt{0x0000} & Interrupt return pointer (saved by hardware on interrupt entry) \\
+\asm{XR0}  & \texttt{0x0000} & Exception context: faulting PC \\
+\asm{XR1}  & \texttt{0x0000} & Exception context: faulting vector number \\
+\asm{XR2}  & \texttt{0x0000} & Exception context: faulting instruction word \\
+\asm{XR3}  & \texttt{0x0000} & Exception context: faulting memory address \\
+\asm{RM}   & \texttt{0x0001} & Mode register: [0]=current mode, [1]=previous mode. 1=kernel, 0=user \\
+\asm{RIC}  & \texttt{0x0000} & Interrupt controller: [15:8]=pending, [7:1]=enable[7:1], [0]=GIE \\
+\asm{RIV[0..7]} & \texttt{0x0000} & Interrupt vector table entries \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\printindex
+
+\end{document}
