@@ -92,7 +92,7 @@ The 4332 is a 16-bit microcoded CPU designed for FPGA implementation on the Xili
 
 At its core the 4332 is a NISC (\emph{No Instruction Set Computer}). Every opcode is decoded into a 32-bit control word (CW), looked up from a 512-entry ROM indexed by \field{\{opcode[5:0], step[2:0]\}}. This means adding a new instruction is as simple as writing a new CW entry: no changes to the datapath, no changes to the decode logic. The same property makes the 4332 unusually hackable --- it is, in principle, possible to make it decode a completely different ISA by replacing the CW ROM.
 
-Despite its simplicity the 4332 does not compromise on system features. It has a proper privilege architecture, a vectored interrupt controller with 8 vectors, and a 3-stage pipeline --- all in a footprint of under 570 LUTs on an Artix-7.
+Despite its simplicity the 4332 does not compromise on system features. It has a proper privilege architecture, a vectored interrupt controller with 8 vectors, and a 3-stage pipeline --- all in a footprint of under 1100 LUTs on an Artix-7.
 
 \section{Main Features}
 
@@ -101,7 +101,7 @@ Despite its simplicity the 4332 does not compromise on system features. It has a
           Every instruction maps to a 32-bit control word looked up from a 512-entry BRAM-inferred ROM. The CW directly drives every datapath signal. Adding a new opcode is a matter of writing a new entry in the ROM initialisation function; no RTL changes are required.
 
     \item \textbf{3-stage pipeline.}
-          FETCH, DECODE, and EXECUTE stages. RAW hazards are resolved by a one-cycle stall with bubble injection. Branches flush the pipeline on taken, producing a single-cycle penalty bubble. There is deliberately no branch predictor --- the pipeline is short enough that prediction overhead outweighs any potential gain.
+          FETCH, DECODE, and EXECUTE stages. RAW hazards are resolved by a one-cycle stall with bubble injection. Branches flush the pipeline on taken, producing a single-cycle penalty bubble. There is a static branch predictor, as it was cheap to implement and gives noticeable performance gains.
 
     \item \textbf{Privilege architecture.}
           Hardware user/kernel mode separation. Any attempt to execute a privileged instruction from user mode raises a \emph{privilege fault} (vector~6), which the interrupt controller services before the offending instruction can have any effect on architectural state.
@@ -130,6 +130,9 @@ Interrupt nesting is not implemented by design. Once the interrupt controller be
 
 The CPU currently boots into kernel mode and does not have a formal mechanism for transitioning to user mode other than \asm{SETMODE}.
 
+About 300 LUTs are used to create the asynchronous CW ROM. A future version featuring a four stage pipeline and higher clock speeds is planned.
+This specific version can run at 100MHz, the highest clock my board can run.
+
 \section{Implementation Estimates}
 
 Typical synthesis results for the 4332 CPU on the Artix-7 (Basys~3 board) are shown in Table~\ref{tab:implementation}. These figures are approximate and depend on tool version, constraint setup, and design utilization.
@@ -145,6 +148,7 @@ Typical synthesis results for the 4332 CPU on the Artix-7 (Basys~3 board) are sh
     LUTs         & $1061$ ($5.25\%$ of XC7A35T) \\
     Flip-flops   & $524$ ($1.26\%$) \\
     BRAM         & 1 \\
+    Clock        & $100MHz$
     \bottomrule
 \end{tabularx}
 \end{table}
