@@ -35,6 +35,7 @@ err()  { echo -e "\033[1;31m[err]\033[0m   $*"; exit 1; }
 
 usage() {
 cat <<EOF
+4332 build script, v2.1
 Usage: $0 [command]
 
 Commands:
@@ -126,10 +127,6 @@ TCL
     ok "Run with: vivado -mode batch -source vivado_project.tcl"
 }
 
-do_vivado_soc() {
-    err "SoC target removed. Use 'vivado' to generate the thin-wrapper project."
-}
-
 # ------------------------------------------------------------------ #
 # Entry point
 # ------------------------------------------------------------------ #
@@ -141,7 +138,6 @@ case "$CMD" in
     sim)         do_sim         ;;
     clean)       do_clean       ;;
     vivado)      do_vivado      ;;
-    vivado-soc)  do_vivado_soc  ;;
     help|-h|--help) usage       ;;
     *) err "Unknown command: $CMD  (try: $0 help)" ;;
 esac

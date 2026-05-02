@@ -1,0 +1,22 @@
+.org 0x0000
+reset_vector:
+    j boot_start
+
+boot_start:
+    ; Zero registers (for warm reset hygiene)
+    loadimm %0, 0
+    mov %1, %0
+    mov %2, %0
+    mov %3, %0
+    mov %4, %0
+    mov %5, %0
+    mov %6, %0
+    mov %7, %0
+
+    ; Set up IRQ0 vector
+    loadimm %0, isr_uart
+    loadimm %1, 0           ; vector index 0
+    writeriv %0, %1
+
+    ; Enable interrupts (GIE=1 via ENIRQ; ric_enable(0) needs a hw fix)
+    enirq

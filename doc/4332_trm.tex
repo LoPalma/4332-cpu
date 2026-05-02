@@ -908,7 +908,7 @@ python3 as.py [options] input.asm
 
 Options:
   -o, --output FILE    Output file (default: a.out)
-  -f, --format FORMAT  Output format: bin | hex | textio (default: bin)
+  -f, --format FORMAT  Output format: bin | hex | textio
 \end{lstlisting}
 
 The \texttt{textio} format produces one 16-bit word per line as a string of 16 \texttt{0}/\texttt{1} characters, directly readable in VHDL via \texttt{std.textio} with a \texttt{bit\_vector(15 downto 0)} variable.
