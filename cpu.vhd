@@ -4,7 +4,7 @@
 --
 -- 16-bit NISC CPU for the Basys 3 (Artix-7).
 --
--- Pipeline:   FETCH → DECODE → EXECUTE  (3 stages)
+-- Pipeline:   FETCH -> DECODE -> EXECUTE  (3 stages)
 -- Hazards:    flush-on-taken-branch (1 bubble); no branch predictor
 -- CW ROM:     512 × 32-bit  ({opcode[5:0], step[2:0]} index)
 -- Sequencer:  3-bit micro-step counter, LAST_STEP terminates
@@ -164,7 +164,7 @@ architecture rtl of cpu is
     constant AM_DIRECT    : std_logic_vector(1 downto 0) := "00"; -- 2-word: abs target in next word
     constant AM_INDIRECT  : std_logic_vector(1 downto 0) := "01"; -- 1-word: target in regfile[RS]
     constant AM_INDIR_OFF : std_logic_vector(1 downto 0) := "10"; -- 2-word: regfile[RS] + next word
-    constant AM_ILLEGAL   : std_logic_vector(1 downto 0) := "11"; -- illegal → fault
+    constant AM_ILLEGAL   : std_logic_vector(1 downto 0) := "11"; -- illegal -> fault
 
     -- BRANCH_COND encodings
     constant BR_NEVER     : std_logic_vector(3 downto 0) := "0000";
@@ -289,16 +289,18 @@ architecture rtl of cpu is
     constant OP_IRET     : integer := 35;
     constant OP_INT      : integer := 36;
     constant OP_HLT      : integer := 37;
-    -- System            0x30–0x39
+    -- System            0x30–0x3f
     constant OP_ENIRQ    : integer := 48;
     constant OP_DISIRQ   : integer := 49;
     constant OP_SETMODE  : integer := 50;
     constant OP_GETMODE  : integer := 51;
     constant OP_WRITERIC : integer := 52;
     constant OP_READRIC  : integer := 53;
-    constant OP_READRIV  : integer := 54;  -- R0 ← RIV[RS]
-    constant OP_WRITERIV : integer := 55;  -- RIV[RS] ← RD
-    constant OP_HALT     : integer := 57;
+    constant OP_READRIV  : integer := 54;  -- R0 <- RIV[RS]
+    constant OP_WRITERIV : integer := 55;  -- RIV[RS] <- RD
+    constant OP_READSP   : integer := 56;
+    constant OP_WRITESP  : integer := 57;
+    constant OP_HALT     : integer := 63;
 
     -- -----------------------------------------------------------------------
     -- CW ROM initialisation
@@ -319,7 +321,7 @@ architecture rtl of cpu is
         r(base) := make_cw(alu_op => ALU_NOP, last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- ADD  R0 ← R0 + RS
+        -- ADD  RD <- RD + RS
         -- -------------------------------------------------------------------
         base := OP_ADD * 8;
         r(base) := make_cw(
@@ -329,7 +331,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- SUB  R0 ← R0 - RS
+        -- SUB  RD <- RD - RS
         -- -------------------------------------------------------------------
         base := OP_SUB * 8;
         r(base) := make_cw(
@@ -339,7 +341,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- AND  R0 ← R0 AND RS
+        -- AND  RD <- RD AND RS
         -- -------------------------------------------------------------------
         base := OP_AND * 8;
         r(base) := make_cw(
@@ -349,7 +351,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- OR   R0 ← R0 OR RS
+        -- OR   RD <- RD OR RS
         -- -------------------------------------------------------------------
         base := OP_OR * 8;
         r(base) := make_cw(
@@ -359,7 +361,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- XOR  R0 ← R0 XOR RS
+        -- XOR  RD <- RD XOR RS
         -- -------------------------------------------------------------------
         base := OP_XOR * 8;
         r(base) := make_cw(
@@ -369,7 +371,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- NOT  R0 ← NOT R0
+        -- NOT  R0 <- NOT R0
         -- -------------------------------------------------------------------
         base := OP_NOT * 8;
         r(base) := make_cw(
@@ -379,7 +381,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- SHL  R0 ← R0 << 1
+        -- SHL  RD <- RD << 1
         -- -------------------------------------------------------------------
         base := OP_SHL * 8;
         r(base) := make_cw(
@@ -389,7 +391,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- SHR  R0 ← R0 >> 1
+        -- SHR  RD <- RD >> 1
         -- -------------------------------------------------------------------
         base := OP_SHR * 8;
         r(base) := make_cw(
@@ -399,7 +401,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- INC  R0 ← R0 + 1
+        -- INC  RD <- RD + 1
         -- -------------------------------------------------------------------
         base := OP_INC * 8;
         r(base) := make_cw(
@@ -409,7 +411,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- DEC  R0 ← R0 - 1
+        -- DEC  RD <- RD - 1
         -- -------------------------------------------------------------------
         base := OP_DEC * 8;
         r(base) := make_cw(
@@ -419,7 +421,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- CMP  flags ← R0 - RS  (no writeback)
+        -- CMP  flags <- R0 - RS  (no writeback)
         -- -------------------------------------------------------------------
         base := OP_CMP * 8;
         r(base) := make_cw(
@@ -429,7 +431,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- MOV  RD ← RS
+        -- MOV  RD <- RS
         -- -------------------------------------------------------------------
         base := OP_MOV * 8;
         r(base) := make_cw(
@@ -439,7 +441,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- LOADIMM  RD ← next_instruction_word  (2-step, variable destination)
+        -- LOADIMM  RD <- next_instruction_word  (2-step, variable destination)
         --
         -- The instruction word immediately following the LOADIMM opcode in
         -- the instruction stream IS the 16-bit immediate value.  The pipeline
@@ -449,12 +451,12 @@ architecture rtl of cpu is
         -- Step 0 (LAST_STEP=0):
         --   The FETCH stage is suppressed whenever micro_step /= 0, so
         --   fd_instr is stable and holds the immediate word.
-        --   The clocked process captures fd_instr → imm_word and increments
+        --   The clocked process captures fd_instr -> imm_word and increments
         --   rpc past the immediate (consuming it from the stream).
         --   REG_WE=0 — no writeback yet.
         --
         -- Step 1 (LAST_STEP=1):
-        --   WB_IMM_WORD writes imm_word → regfile[RD].
+        --   WB_IMM_WORD writes imm_word -> regfile[RD].
         --   Normal fetch resumes.
         -- -------------------------------------------------------------------
         base := OP_LOADIMM * 8;
@@ -467,7 +469,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- PASSA  R0 ← RD  (identity through A path)
+        -- PASSA  R0 <- RD  (identity through A path)
         -- -------------------------------------------------------------------
         base := OP_PASSA * 8;
         r(base) := make_cw(
@@ -477,7 +479,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- PASSB  R0 ← RS
+        -- PASSB  R0 <- RS
         -- -------------------------------------------------------------------
         base := OP_PASSB * 8;
         r(base) := make_cw(
@@ -487,7 +489,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- LD   RD ← mem[RS]   (2 steps: issue read, then writeback)
+        -- LD   RD <- mem[RS]   (2 steps: issue read, then writeback)
         -- Step 0: present address, assert MEM_RD, no writeback yet
         -- Step 1: capture mem data into RD, LAST_STEP
         -- -------------------------------------------------------------------
@@ -503,7 +505,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- ST   mem[RD] ← RS
+        -- ST   mem[RD] <- RS
         -- -------------------------------------------------------------------
         base := OP_ST * 8;
         r(base) := make_cw(
@@ -513,7 +515,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- LDB  RD ← mem[RS]  (byte)
+        -- LDB  RD <- mem[RS]  (byte)
         -- Step 0: address + MEM_RD, Step 1: writeback
         -- -------------------------------------------------------------------
         base := OP_LDB * 8;
@@ -529,7 +531,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- STB  mem[RD] ← RS  (byte)
+        -- STB  mem[RD] <- RS  (byte)
         -- -------------------------------------------------------------------
         base := OP_STB * 8;
         r(base) := make_cw(
@@ -540,7 +542,24 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- PUSH  mem[RSP-1] ← RS;  RSP ← RSP - 1
+        -- READSP  RD <- SP
+        -- -------------------------------------------------------------------
+        base := OP_READSP * 8;
+        r(base) := make_cw(
+            reg_we => '1', rd_from_inst => '1',
+            wb_src => WB_SPEC,
+            priv_check => '1', last_step => '1');
+
+        -- -------------------------------------------------------------------
+        -- WRITESP  SP <- RS
+        -- -------------------------------------------------------------------
+        base := OP_WRITESP * 8;
+        r(base) := make_cw(
+            sp_op => SP_NONE,
+            priv_check => '1', last_step => '1');
+            
+        -- -------------------------------------------------------------------
+        -- PUSH  mem[RSP-1] <- RS;  RSP <- RSP - 1
         -- Step 0: decrement SP and write memory
         -- -------------------------------------------------------------------
         base := OP_PUSH * 8;
@@ -551,7 +570,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- POP   RD ← mem[RSP];  RSP ← RSP + 1
+        -- POP   RD <- mem[RSP];  RSP <- RSP + 1
         -- Step 0: read memory at RSP
         -- Step 1: writeback to RD, increment RSP
         -- -------------------------------------------------------------------
@@ -567,7 +586,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- PEEK  RD ← mem[RSP]  (no SP change)
+        -- PEEK  RD <- mem[RSP]  (no SP change)
         -- -------------------------------------------------------------------
         base := OP_PEEK * 8;
         r(base)   := make_cw(
@@ -581,7 +600,7 @@ architecture rtl of cpu is
 
         -- -------------------------------------------------------------------
         -- JMP  — addressing mode in inst[3:2], condition in inst[1:0]
-        -- Step 0 (LAST_STEP=0): freeze fetch, capture fd_instr → jmp_word.
+        -- Step 0 (LAST_STEP=0): freeze fetch, capture fd_instr -> jmp_word.
         --   For AM_INDIRECT (inst[3:2]=01): the clocked process detects this,
         --   executes the jump immediately, and resets micro_step to 0 (1-word).
         --   For AM_DIRECT / AM_INDIR_OFF: step 1 executes.
@@ -626,7 +645,7 @@ architecture rtl of cpu is
 
         -- -------------------------------------------------------------------
         -- CALL  push RPC; then jump (same addressing modes as JMP)
-        -- Step 0: push current PC onto stack AND capture fd_instr → jmp_word.
+        -- Step 0: push current PC onto stack AND capture fd_instr -> jmp_word.
         --   For AM_INDIRECT: execute jump immediately (1-word).
         --   For AM_DIRECT / AM_INDIR_OFF: continue to step 1.
         -- Step 1: apply jump target.
@@ -642,9 +661,9 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- RET  RPC ← pop()
+        -- RET  RPC <- pop()
         -- Step 0: read mem[RSP]
-        -- Step 1: RPC ← mem data, RSP++
+        -- Step 1: RPC <- mem data, RSP++
         -- -------------------------------------------------------------------
         base := OP_RET * 8;
         r(base)   := make_cw(
@@ -655,7 +674,7 @@ architecture rtl of cpu is
             last_step => '1');
 
         -- -------------------------------------------------------------------
-        -- IRET  RPC ← RIP; RM.MODE ← PREV_MODE; GIE ← 1
+        -- IRET  RPC <- RIP; RM.MODE <- PREV_MODE; GIE <- 1
         -- Step 0: restore PC from RIP
         -- Step 1: restore mode
         -- Step 2: re-enable GIE, LAST_STEP
@@ -667,7 +686,7 @@ architecture rtl of cpu is
         r(base+2) := make_cw(                     last_step => '1', priv_check => '1');
 
         -- -------------------------------------------------------------------
-        -- INT  software trap → vector 4
+        -- INT  software trap -> vector 4
         -- (interrupt entry is handled by the interrupt controller logic,
         --  the CW just signals a NOP so the micro-sequencer stalls one cycle
         --  while hardware asserts vector 4 into the interrupt path)
@@ -685,37 +704,37 @@ architecture rtl of cpu is
         -- System instructions (all kernel-only)
         -- -------------------------------------------------------------------
 
-        -- ENABLE_IRQ  GIE ← 1  (handled via special decode of pc_src/priv_check)
+        -- ENABLE_IRQ  GIE <- 1  (handled via special decode of pc_src/priv_check)
         base := OP_ENIRQ * 8;
         r(base) := make_cw(priv_check => '1', last_step => '1');
 
-        -- DISABLE_IRQ  GIE ← 0
+        -- DISABLE_IRQ  GIE <- 0
         base := OP_DISIRQ * 8;
         r(base) := make_cw(priv_check => '1', last_step => '1');
 
-        -- GETMODE  R0 ← RM
+        -- GETMODE  R0 <- RM
         base := OP_GETMODE * 8;
         r(base) := make_cw(
             reg_we => '1', wb_src => WB_SPEC,
             priv_check => '1', last_step => '1');
 
-        -- READRIC  R0 ← RIC
+        -- READRIC  R0 <- RIC
         base := OP_READRIC * 8;
         r(base) := make_cw(
             reg_we => '1', wb_src => WB_SPEC,
             priv_check => '1', last_step => '1');
 
-        -- WRITERIC  RIC ← RS
+        -- WRITERIC  RIC <- RS
         base := OP_WRITERIC * 8;
         r(base) := make_cw(priv_check => '1', last_step => '1');
 
-        -- READRIV  R0 ← RIV[RS[2:0]]
+        -- READRIV  R0 <- RIV[RS[2:0]]
         base := OP_READRIV * 8;
         r(base) := make_cw(
             reg_we => '1', wb_src => WB_SPEC,
             priv_check => '1', last_step => '1');
 
-        -- WRITERIV  RIV[RS[2:0]] ← RD  (side-effect only, no CW writeback needed)
+        -- WRITERIV  RIV[RS[2:0]] <- RD  (side-effect only, no CW writeback needed)
         base := OP_WRITERIV * 8;
         r(base) := make_cw(priv_check => '1', last_step => '1');
 
@@ -768,12 +787,12 @@ architecture rtl of cpu is
     -- Pipeline registers
     -- -----------------------------------------------------------------------
 
-    -- FETCH → DECODE
+    -- FETCH -> DECODE
     signal fd_instr  : std_logic_vector(15 downto 0) := (others => '0');
     signal fd_pc     : std_logic_vector(15 downto 0) := (others => '0');
     signal fd_valid  : std_logic := '0'; -- '0' = bubble
 
-    -- DECODE → EXECUTE (registered CW and decoded fields)
+    -- DECODE -> EXECUTE (registered CW and decoded fields)
     signal de_cw         : std_logic_vector(31 downto 0) := CW_NOP;
     signal de_instr      : std_logic_vector(15 downto 0) := (others => '0');
     signal de_pc         : std_logic_vector(15 downto 0) := (others => '0');
@@ -1135,6 +1154,8 @@ begin
                         wb_data <= ric_pending & ric_enable(7 downto 1) & ric_gie;
                     when OP_READRIV  =>
                         wb_data <= riv(to_integer(unsigned(de_instr(6 downto 4))));
+                    when OP_WRITESP =>
+                        rsp <= regfile(to_integer(unsigned(instr_rs)));
                     when others      =>
                         wb_data <= rsp;
                 end case;
@@ -1241,7 +1262,7 @@ begin
                 if de_valid = '1' then
 
                     -- -------------------------------------------------------
-                    -- Privilege fault → redirect to interrupt entry
+                    -- Privilege fault -> redirect to interrupt entry
                     -- -------------------------------------------------------
                     if priv_fault = '1' then
                         take_int := '1';
@@ -1439,7 +1460,7 @@ begin
                                     ric_pending(4) <= '1';
                                 when others => null;
                             end case;
-                            -- Jump with AM_ILLEGAL addressing mode → illegal opcode fault
+                            -- Jump with AM_ILLEGAL addressing mode -> illegal opcode fault
                             if cw_pc_src = PC_JUMP and instr_am = AM_ILLEGAL then
                                 ill_opcode <= '1';
                             end if;
@@ -1463,7 +1484,7 @@ begin
                 end if; -- de_valid
 
                 -- ===========================================================
-                -- DECODE stage → latch into DE registers
+                -- DECODE stage -> latch into DE registers
                 -- RAW hazard: if EXECUTE is writing a register that the
                 -- incoming FD instruction reads, stall for one cycle:
                 --   - inject bubble (NOP) into DE

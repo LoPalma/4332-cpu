@@ -34,7 +34,8 @@ OPCODES = {
     # System
     'ENIRQ': 48, 'DISIRQ': 49, 'SETMODE': 50, 'GETMODE': 51,
     'WRITERIC': 52, 'READRIC': 53, 'READRIV': 54, 'WRITERIV': 55,
-    'HALT': 57
+    'READSP' : 56, 'WRITESP' : 57,
+    'HALT': 63
 }
 
 # Operand format groups
